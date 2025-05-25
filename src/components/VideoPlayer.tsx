@@ -8,6 +8,8 @@ interface VideoPlayerProps {
   onPause?: () => void;
   onPlay?: () => void;
   initialTime?: number;
+  seekTime?: number | null; // ← new prop
+  onSeekHandled?: () => void; // optional callback to reset seekTime
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -16,6 +18,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onPause,
   onPlay,
   initialTime = 0,
+  seekTime = null,
+  onSeekHandled,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(initialTime);
@@ -35,6 +39,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     return () => clearInterval(interval);
   }, [isPlaying, onTimeUpdate]);
+
+  useEffect(() => {
+    if (seekTime != null && playerRef.current) {
+      playerRef.current.seekTo(seekTime, true);
+      onSeekHandled?.(); // tell parent to clear the seekTime
+    }
+  }, [seekTime]);
 
   const handleReady = (event: any) => {
     playerRef.current = event.target;

@@ -83,6 +83,7 @@ const RepeatPractice: React.FC = () => {
   const [recordings, setRecordings] = useState<Record<string, RecordingState>>({});
   const [completedLines, setCompletedLines] = useState<string[]>([]);
   const [activeTranscript, setActiveTranscript] = useState<TranscriptLine[]>([]);
+  const [seekTime, setSeekTime] = useState<number | null>(null);
   
   useEffect(() => {
     console.log('HVH selectedVideo changed:', selectedVideo);
@@ -114,7 +115,8 @@ const RepeatPractice: React.FC = () => {
   const handleLineClick = (line: TranscriptLine) => {
     setActiveLineId(line.id);
     // If video is playing, pause it
-    setIsPaused(true);
+    // setIsPaused(true);
+    setSeekTime(line.start);
   };
   
   const handleRecordingComplete = (blob: Blob) => {
@@ -262,6 +264,9 @@ const RepeatPractice: React.FC = () => {
                     onTimeUpdate={handleTimeUpdate}
                     onPause={() => setIsPaused(true)}
                     onPlay={() => setIsPaused(false)}
+                    initialTime= {0}
+                    seekTime={seekTime}
+                    onSeekHandled={() => setSeekTime(null)} // clear it after handled
                   />
                   
                   <div className="card p-4">
