@@ -2,48 +2,33 @@ import React, { useState, useEffect } from 'react';
 import VideoPlayer from '../components/VideoPlayer';
 import TranscriptDisplay, { TranscriptLine } from '../components/TranscriptDisplay';
 import AudioRecorder from '../components/AudioRecorder';
-import { YoutubeIcon, ChevronLeft, ChevronRight, Save } from 'lucide-react';
+import { YoutubeIcon, ChevronLeft, ChevronRight, Save, Link } from 'lucide-react';
 import clsx from 'clsx';
-import { supabase } from '../supabase/SupabaseClient';
-
-async function FetchTranscript(video_url: string): Promise<any> {
-  // call edge function to fetch transcript
-  const { data, error } = await supabase.functions.invoke('get-transcript', {
-    method: 'POST',
-    body: JSON.stringify({ "video_url": video_url }),
-  });
-
-  if (error) {
-    console.error('Error fetching transcript:', error);
-    throw new Error('Failed to fetch transcript');
-  }
-  console.log('Transcript data:', data);
-  return data;
-}
+import {FetchTranscript, FetchVideos, GenerateTranscript, IsExistTranscript, SyncTranscript} from '../utils/apis';
 
 // Sample data
 const sampleVideos = [
-  {
-    id: '1',
-    title: 'Daily Conversation: At the Coffee Shop',
-    videoId: 'qqHPpX4BNrg',
-    thumbnail: 'https://img.youtube.com/vi/orL-w2QBiN8/mqdefault.jpg',
-    level: 'beginner',
-  },
-  {
-    id: '2',
-    title: 'Business English: Job Interview',
-    videoId: 'qqHPpX4BNrg',
-    thumbnail: 'https://img.youtube.com/vi/KukmClH1KoA/mqdefault.jpg',
-    level: 'intermediate',
-  },
-  {
-    id: '3',
-    title: 'Academic Discussion: Climate Change',
-    videoId: 'qqHPpX4BNrg',
-    thumbnail: 'https://img.youtube.com/vi/0flkN4jtgCs/mqdefault.jpg',
-    level: 'advanced',
-  },
+  // {
+  //   id: '1',
+  //   title: 'Daily Conversation: At the Coffee Shop',
+  //   videoId: 'qqHPpX4BNrg',
+  //   thumbnail: 'https://img.youtube.com/vi/orL-w2QBiN8/mqdefault.jpg',
+  //   level: 'beginner',
+  // },
+  // {
+  //   id: '2',
+  //   title: 'Business English: Job Interview',
+  //   videoId: 'qqHPpX4BNrg',
+  //   thumbnail: 'https://img.youtube.com/vi/KukmClH1KoA/mqdefault.jpg',
+  //   level: 'intermediate',
+  // },
+  // {
+  //   id: '3',
+  //   title: 'Academic Discussion: Climate Change',
+  //   videoId: 'qqHPpX4BNrg',
+  //   thumbnail: 'https://img.youtube.com/vi/0flkN4jtgCs/mqdefault.jpg',
+  //   level: 'advanced',
+  // },
 ];
 
 // Sample transcript
@@ -66,12 +51,82 @@ interface VideoItem {
   videoId: string;
   thumbnail: string;
   level: 'beginner' | 'intermediate' | 'advanced';
+  url: string;
 }
 
 interface RecordingState {
   lineId: string;
   blob?: Blob;
   url?: string;
+}
+
+const extractVideoId = (url: string) => {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'youtu.be') {
+      return urlObj.pathname.slice(1);
+    }
+    if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
+      return urlObj.searchParams.get('v');
+    }
+  } catch (error) {
+    return null;
+  }
+  return null;
+};
+
+async function FetchTranscriptData(video_url: string) : Promise<any> {
+    // Step 1: check if transcript exists
+    try {
+      console.log('HVH FetchTranscriptData called with video_url:', video_url);
+      const isTranscriptExist = await IsExistTranscript(video_url);
+      if (!isTranscriptExist) {
+        console.log('Transcript not found');
+        // If transcript does not exist, generate it
+        await GenerateTranscript(video_url)
+
+        // Step 2: fetch the transcript status for 2 minutes
+        const interval = setInterval(async () => {
+          const isTranscriptExist = await IsExistTranscript(video_url);
+          if (isTranscriptExist) {
+            clearInterval(interval);
+            console.log('HVH transcript generated successfully');
+            // Fetch the transcript after it is generated
+            await SyncTranscript(video_url);
+            const transcript = await FetchTranscript(video_url);
+            console.log('HVH updated transcript');
+            return JSON.stringify({
+              video_url: video_url,
+              transcript: transcript,
+              error :""
+            });
+          }
+        }, 1000); // Check every 1 second
+        // Wait for 2 minutes before giving up
+        await new Promise(resolve => setTimeout(resolve, 120000)); // 2 minutes
+        clearInterval(interval);
+        console.log('HVH transcript generation timed out after 2 minutes');
+        return JSON.stringify({
+          video_url: video_url,
+          transcript: [],
+          error: "Transcript generation timed out after 2 minutes. Please try again later."
+        });
+      }
+      else {
+        // Step 2: fetch the transcript
+        const transcript = await FetchTranscript(video_url);
+        console.log('HVH updated transcript');
+        return JSON.stringify({
+          video_url: video_url,
+          transcript: transcript,
+          error :""
+        })
+      }
+    }
+    catch (error) {
+      console.error('HVH error in FetchTranscriptData:', error);
+      throw new Error('Error in FetchTranscriptData');
+    }
 }
 
 const RepeatPractice: React.FC = () => {
@@ -84,25 +139,81 @@ const RepeatPractice: React.FC = () => {
   const [completedLines, setCompletedLines] = useState<string[]>([]);
   const [activeTranscript, setActiveTranscript] = useState<TranscriptLine[]>([]);
   const [seekTime, setSeekTime] = useState<number | null>(null);
-  
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [urlError, setUrlError] = useState('');
+  const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]); // For future use
+
+  // Default Effect to fetch initial videos
+  useEffect(() => {
+    FetchVideos()
+      .then(videos => {
+        console.log('HVH fetched videos:', videos);
+        videos = videos.map((video: any) => {
+          const videoId = extractVideoId(video.video_url);
+          const level = video.level || 'beginner';
+          const thumbnail = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+          return {
+            id: video.id,
+            title: video.title,
+            videoId: videoId,
+            thumbnail: thumbnail,
+            level: level as 'beginner' | 'intermediate' | 'advanced',
+            url: video.video_url || `https://www.youtube.com/watch?v=${videoId}`,
+          } as VideoItem;
+        });
+        setExistingVideos(videos);
+      })
+      .catch(error => {
+        console.error('HVH error fetching videos:', error);
+      });
+  }, []);
+
+
   useEffect(() => {
     console.log('HVH selectedVideo changed:', selectedVideo);
     // In a real app, you would fetch this based on the selected video
-    if (selectedVideo) {
-      // Logic getting transcript here
-      FetchTranscript("https://www.youtube.com/watch?v=qqHPpX4BNrg")
-        .then(transcript => {
-          console.log('HVH updated transcript');
-          setActiveTranscript(transcript);
+    // if (selectedVideo) {
+    //   // step 1: check status transcript, if transcript exists, use it
+    //   const isTranscriptExist = await IsExistTranscript(selectedVideo.url);
+    //   if()
+
+    //   // Logic getting transcript here
+    //   FetchTranscript(selectedVideo.url)
+    //     .then(transcript => {
+    //       console.log('HVH updated transcript');
+    //       setActiveTranscript(transcript);
+    //     })
+    // }
+
+
+   if(selectedVideo) {
+      console.log('HVH Fetching transcript for selected video:', selectedVideo.url);
+      FetchTranscriptData(selectedVideo.url)
+        .then(result => {
+          const data = JSON.parse(result);
+          if (data.error) {
+            console.error('HVH error fetching transcript:', data.error);
+            setActiveTranscript([]);
+          } else {
+            console.log('HVH fetched transcript:', data.transcript);
+            setActiveTranscript(data.transcript);
+          }
         })
+        .catch(error => {
+          console.error('HVH error fetching transcript:', error);
+          setActiveTranscript([]);
+        }
+      );
     }
+    // Reset state when changing video
+    setCurrentTime(0);
+    setActiveLineId(undefined);
+    setRecordings({});
+    setCompletedLines([]);
+    setSeekTime(null);
   }, [selectedVideo]);
 
 
-  useEffect(() => {
-    
-  }, [isPaused])
-  
   const handleVideoSelect = (video: VideoItem) => {
     setSelectedVideo(video);
     setIsSelectingVideo(false);
@@ -110,6 +221,34 @@ const RepeatPractice: React.FC = () => {
     setRecordings({});
     setCompletedLines([]);
     setActiveLineId(undefined);
+  };
+
+  const handleCustomVideoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const videoId = extractVideoId(youtubeUrl);
+    
+    if (!videoId) {
+      setUrlError('Please enter a valid YouTube URL');
+      return;
+    }
+
+    setUrlError('');
+    const customVideo: VideoItem = {
+      id: videoId,
+      title: 'Custom Video',
+      videoId: videoId,
+      thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+      level: 'beginner',
+      url: youtubeUrl,
+    };
+  
+    GenerateTranscript(youtubeUrl).then(result => {
+      console.log('HVH generated transcript for custom video:', result);
+    }).catch(error => {
+      console.error('HVH error generating transcript for custom video:', error);
+    })
+
+    handleVideoSelect(customVideo);
   };
   
   const handleLineClick = (line: TranscriptLine) => {
@@ -202,9 +341,58 @@ const RepeatPractice: React.FC = () => {
           <p className="text-gray-600 mb-6">
             Select a video to practice repeating after native speakers. Listen carefully and try to match their pronunciation and intonation.
           </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sampleVideos.map(video => (
+
+          {/* Youtube upload input */}
+          <div className="max-w-xl mx-auto mb-12">
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Custom Video</h2>
+              <form onSubmit={handleCustomVideoSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-1">
+                    YouTube Video URL
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Link size={18} className="text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      id="youtube-url"
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      className={clsx(
+                        "block w-full pl-10 pr-3 py-2 rounded-md border",
+                        urlError ? "border-red-300" : "border-gray-300",
+                        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      )}
+                    />
+                  </div>
+                  {urlError && (
+                    <p className="mt-1 text-sm text-red-600">{urlError}</p>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <YoutubeIcon size={20} />
+                  <span>Load Video</span>
+                </button>
+              </form>
+            </div>
+          </div>
+          {/* Youtube upload input */}
+
+          {existingVideos.length == 0 && (
+            <div className="text-center text-gray-500">
+              <p className="mb-4">No videos available. Please add a custom video.</p>
+            </div>
+          )}
+
+          {existingVideos.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {existingVideos.map(video => (
               <div 
                 key={video.id}
                 className="card cursor-pointer hover:shadow-lg transition-all"
@@ -238,6 +426,7 @@ const RepeatPractice: React.FC = () => {
               </div>
             ))}
           </div>
+        )}
         </>
       ) : (
         <div className="space-y-6">

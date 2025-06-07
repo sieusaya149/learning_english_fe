@@ -26,9 +26,9 @@ const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Determine which line is active based on current video time
-  const activeLine = transcript.find(
+  const activeLine = transcript? transcript.find(
     line => currentTime >= line.start && currentTime <= line.end
-  );
+  ) : null;
 
   // |---------------------------|  <-- container top
   // |                           |
@@ -47,6 +47,33 @@ const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
       });
     }
   }, [activeLine?.id]);
+
+  if (!transcript || transcript.length === 0) {
+    return (
+      <div className="card">
+        <div className="p-4 bg-blue-800 text-white flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Transcript</h2>
+          <div className="animate-pulse bg-blue-700 rounded h-6 w-16"></div>
+        </div>
+        
+        <div className="p-4">
+          <div className="space-y-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-100 rounded w-1/4 mt-2"></div>
+                  </div>
+                  <div className="h-4 bg-gray-200 rounded w-12"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="card">
