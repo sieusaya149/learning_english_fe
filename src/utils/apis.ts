@@ -1,5 +1,6 @@
 
 
+// const baseUrl = 'http://bindev.online:5000';
 const baseUrl = 'https://bindev.online';
 
 
@@ -27,7 +28,7 @@ export async function GET_videos_v1(): Promise<any> {
 }
 
 export async function GET_transcript_status(video_url: string): Promise<any> {
-  const fetch_url = `${baseUrl}${versionApiV2}/transcript-status`;
+  const fetch_url = `${baseUrl}${versionApiV1}/transcript-status`;
   const params = new URLSearchParams({ video_url });
   const response = await fetch(`${fetch_url}?${params.toString()}`, {
     method: 'GET',
@@ -43,7 +44,7 @@ export async function GET_transcript_status(video_url: string): Promise<any> {
 
 
 export async function GET_transcript_v2(video_url: string): Promise<any> {
-  const fetch_url = `${baseUrl}${versionApiV2}/transcript`;
+  const fetch_url = `${baseUrl}${versionApiV1}/transcript`;
   const params = new URLSearchParams({ video_url });
   const response = await fetch(`${fetch_url}?${params.toString()}`, {
     method: 'GET',
