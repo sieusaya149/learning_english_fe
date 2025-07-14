@@ -5,7 +5,7 @@ import AudioRecorder from '../components/AudioRecorder';
 import { YoutubeIcon, ChevronLeft, ChevronRight, Save, Link } from 'lucide-react';
 import clsx from 'clsx';
 import {FetchTranscript, FetchVideos, GenerateTranscript, IsExistTranscript, SyncTranscript} from '../utils/apis';
-
+import { GET_videos_v1, GET_transcript_v2, GET_transcript_status, POST_Generate_Transcript } from '../utils/apis';
 // Sample data
 const sampleVideos = [
   // {
@@ -79,46 +79,17 @@ async function FetchTranscriptData(video_url: string) : Promise<any> {
     // Step 1: check if transcript exists
     try {
       console.log('HVH FetchTranscriptData called with video_url:', video_url);
-      const isTranscriptExist = await IsExistTranscript(video_url);
+      const isTranscriptExist = await GET_transcript_status(video_url);
       if (!isTranscriptExist) {
-        console.log('Transcript not found');
-        // If transcript does not exist, generate it
-        await GenerateTranscript(video_url)
-
-        // Step 2: fetch the transcript status for 2 minutes
-        const interval = setInterval(async () => {
-          const isTranscriptExist = await IsExistTranscript(video_url);
-          if (isTranscriptExist) {
-            clearInterval(interval);
-            console.log('HVH transcript generated successfully');
-            // Fetch the transcript after it is generated
-            await SyncTranscript(video_url);
-            const transcript = await FetchTranscript(video_url);
-            console.log('HVH updated transcript');
-            return JSON.stringify({
-              video_url: video_url,
-              transcript: transcript,
-              error :""
-            });
-          }
-        }, 1000); // Check every 1 second
-        // Wait for 2 minutes before giving up
-        await new Promise(resolve => setTimeout(resolve, 120000)); // 2 minutes
-        clearInterval(interval);
-        console.log('HVH transcript generation timed out after 2 minutes');
-        return JSON.stringify({
-          video_url: video_url,
-          transcript: [],
-          error: "Transcript generation timed out after 2 minutes. Please try again later."
-        });
+        console.log('HVH transcript does not exist');
       }
       else {
         // Step 2: fetch the transcript
-        const transcript = await FetchTranscript(video_url);
-        console.log('HVH updated transcript');
+        const transcript = await GET_transcript_v2(video_url);
+        console.log('HVH fetched transcript:', transcript);
         return JSON.stringify({
           video_url: video_url,
-          transcript: transcript,
+          transcript: transcript["transcript"] || [],
           error :""
         })
       }
@@ -145,7 +116,7 @@ const RepeatPractice: React.FC = () => {
 
   // Default Effect to fetch initial videos
   useEffect(() => {
-    FetchVideos()
+    GET_videos_v1()
       .then(videos => {
         console.log('HVH fetched videos:', videos);
         videos = videos.map((video: any) => {
@@ -242,7 +213,7 @@ const RepeatPractice: React.FC = () => {
       url: youtubeUrl,
     };
   
-    GenerateTranscript(youtubeUrl).then(result => {
+    POST_Generate_Transcript(youtubeUrl).then(result => {
       console.log('HVH generated transcript for custom video:', result);
     }).catch(error => {
       console.error('HVH error generating transcript for custom video:', error);
