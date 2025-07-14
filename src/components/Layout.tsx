@@ -1,13 +1,23 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Mic, BookOpen, Repeat, Home, Menu, X } from 'lucide-react';
+import { Mic, BookOpen, Repeat, Home, Menu, X, LogOut, User } from 'lucide-react';
+import { useAuth0 } from '@auth0/auth0-react';
 import clsx from 'clsx';
 
 const Layout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const { user, isAuthenticated, logout } = useAuth0();
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleLogout = async () => {
+    logout({
+      logoutParams: {
+        returnTo: window.location.origin,
+      },
+    });
   };
 
   const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) => (
@@ -44,6 +54,24 @@ const Layout: React.FC = () => {
               <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
               <NavItem to="/shadow" icon={Mic} label="Shadow" />
             </nav>
+            
+            {isAuthenticated && user && (
+              <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-200">
+                <div className="flex items-center gap-2">
+                  <User size={20} className="text-gray-600" />
+                  <span className="text-sm text-gray-700">
+                    {user.displayName || user.email}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
           </div>
           
           <button
@@ -90,6 +118,27 @@ const Layout: React.FC = () => {
           <NavItem to="/repeat" icon={Repeat} label="Repeat" />
           <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
           <NavItem to="/shadow" icon={Mic} label="Shadow" />
+          
+          {isAuthenticated && user && (
+            <>
+              <div className="border-t border-gray-200 my-4"></div>
+              <div className="px-3 py-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <User size={16} className="text-gray-600" />
+                  <span className="text-sm text-gray-700">
+                    {user.displayName || user.email}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </>
+          )}
         </nav>
       </div>
 

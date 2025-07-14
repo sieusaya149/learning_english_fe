@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import VideoPlayer from '../components/VideoPlayer';
-import { YoutubeIcon, Mic, StopCircle, Save, Volume2, Info } from 'lucide-react';
+import { YoutubeIcon, Mic, StopCircle, Save, Volume2, Info, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 
 // Sample videos
