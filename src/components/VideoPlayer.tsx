@@ -10,6 +10,7 @@ interface VideoPlayerProps {
   initialTime?: number;
   seekTime?: number | null; // ← new prop
   onSeekHandled?: () => void; // optional callback to reset seekTime
+  shouldAutoPlay?: boolean; // ← new prop for auto-play
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -20,6 +21,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   initialTime = 0,
   seekTime = null,
   onSeekHandled,
+  shouldAutoPlay = false,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(initialTime);
@@ -47,6 +49,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [seekTime]);
 
+  useEffect(() => {
+    if (shouldAutoPlay && playerRef.current && !isPlaying) {
+      playerRef.current.playVideo();
+    }
+  }, [shouldAutoPlay]);
+
   const handleReady = (event: any) => {
     playerRef.current = event.target;
     // event.target.getDuration().then((duration: number) => {
@@ -56,7 +64,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (initialTime > 0) {
       event.target.seekTo(initialTime);
     }
-    playerRef.current.playVideo();
+    // playerRef.current.playVideo();
+    // Default is paused video, for preparing transcript
+    playerRef.current.pauseVideo();
+    setIsPlaying(false);
   };
 
   const handlePlay = () => {

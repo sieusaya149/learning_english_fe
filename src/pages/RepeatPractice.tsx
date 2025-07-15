@@ -4,7 +4,6 @@ import TranscriptDisplay, { TranscriptLine } from '../components/TranscriptDispl
 import AudioRecorder from '../components/AudioRecorder';
 import { YoutubeIcon, ChevronLeft, ChevronRight, Save, Link } from 'lucide-react';
 import clsx from 'clsx';
-import {FetchTranscript, FetchVideos, GenerateTranscript, IsExistTranscript, SyncTranscript} from '../utils/apis';
 import { GET_videos_v1, GET_transcript_v2, GET_transcript_status, POST_Generate_Transcript } from '../utils/apis';
 // Sample data
 const sampleVideos = [
@@ -113,6 +112,7 @@ const RepeatPractice: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [urlError, setUrlError] = useState('');
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]); // For future use
+  const [isTranscriptLoaded, setIsTranscriptLoaded] = useState(false);
 
   // Default Effect to fetch initial videos
   useEffect(() => {
@@ -140,51 +140,7 @@ const RepeatPractice: React.FC = () => {
   }, []);
 
 
-  useEffect(() => {
-    console.log('HVH selectedVideo changed:', selectedVideo);
-    // In a real app, you would fetch this based on the selected video
-    // if (selectedVideo) {
-    //   // step 1: check status transcript, if transcript exists, use it
-    //   const isTranscriptExist = await IsExistTranscript(selectedVideo.url);
-    //   if()
-
-    //   // Logic getting transcript here
-    //   FetchTranscript(selectedVideo.url)
-    //     .then(transcript => {
-    //       console.log('HVH updated transcript');
-    //       setActiveTranscript(transcript);
-    //     })
-    // }
-
-
-   if(selectedVideo) {
-      console.log('HVH Fetching transcript for selected video:', selectedVideo.url);
-      FetchTranscriptData(selectedVideo.url)
-        .then(result => {
-          const data = JSON.parse(result);
-          if (data.error) {
-            console.error('HVH error fetching transcript:', data.error);
-            setActiveTranscript([]);
-          } else {
-            console.log('HVH fetched transcript:', data.transcript);
-            setActiveTranscript(data.transcript);
-          }
-        })
-        .catch(error => {
-          console.error('HVH error fetching transcript:', error);
-          setActiveTranscript([]);
-        }
-      );
-    }
-    // Reset state when changing video
-    setCurrentTime(0);
-    setActiveLineId(undefined);
-    setRecordings({});
-    setCompletedLines([]);
-    setSeekTime(null);
-  }, [selectedVideo]);
-
-
+  
   const handleVideoSelect = (video: VideoItem) => {
     setSelectedVideo(video);
     setIsSelectingVideo(false);
@@ -192,6 +148,34 @@ const RepeatPractice: React.FC = () => {
     setRecordings({});
     setCompletedLines([]);
     setActiveLineId(undefined);
+    setIsTranscriptLoaded(false);
+
+    setActiveTranscript([]);
+    console.log('HVH Fetching transcript for selected video:', video.url);
+    FetchTranscriptData(video.url)
+      .then(result => {
+        const data = JSON.parse(result);
+        if (data.error) {
+          console.error('HVH error fetching transcript:', data.error);
+          setActiveTranscript([]);
+        } else {
+          console.log('HVH fetched transcript:', data.transcript);
+          setActiveTranscript(data.transcript);
+        }
+      })
+      .catch(error => {
+        console.error('HVH error fetching transcript:', error);
+        setActiveTranscript([]);
+      })
+      .finally(() => {
+        setIsTranscriptLoaded(true);
+      });
+    // Reset state when changing video
+    setCurrentTime(0);
+    setActiveLineId(undefined);
+    setRecordings({});
+    setCompletedLines([]);
+    setSeekTime(null);
   };
 
   const handleCustomVideoSubmit = (e: React.FormEvent) => {
@@ -427,6 +411,7 @@ const RepeatPractice: React.FC = () => {
                     initialTime= {0}
                     seekTime={seekTime}
                     onSeekHandled={() => setSeekTime(null)} // clear it after handled
+                    shouldAutoPlay={isTranscriptLoaded}
                   />
                   
                   <div className="card p-4">
