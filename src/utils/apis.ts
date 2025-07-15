@@ -37,9 +37,7 @@ export async function GET_transcript_status(video_url: string): Promise<any> {
     }
   });
 
-  const data = await response.json();
-  console.log('Transcript status data:', data);
-  return response.ok;
+  return response;
 }
 
 

@@ -5,44 +5,7 @@ import AudioRecorder from '../components/AudioRecorder';
 import { YoutubeIcon, ChevronLeft, ChevronRight, Save, Link } from 'lucide-react';
 import clsx from 'clsx';
 import { GET_videos_v1, GET_transcript_v2, GET_transcript_status, POST_Generate_Transcript } from '../utils/apis';
-// Sample data
-const sampleVideos = [
-  // {
-  //   id: '1',
-  //   title: 'Daily Conversation: At the Coffee Shop',
-  //   videoId: 'qqHPpX4BNrg',
-  //   thumbnail: 'https://img.youtube.com/vi/orL-w2QBiN8/mqdefault.jpg',
-  //   level: 'beginner',
-  // },
-  // {
-  //   id: '2',
-  //   title: 'Business English: Job Interview',
-  //   videoId: 'qqHPpX4BNrg',
-  //   thumbnail: 'https://img.youtube.com/vi/KukmClH1KoA/mqdefault.jpg',
-  //   level: 'intermediate',
-  // },
-  // {
-  //   id: '3',
-  //   title: 'Academic Discussion: Climate Change',
-  //   videoId: 'qqHPpX4BNrg',
-  //   thumbnail: 'https://img.youtube.com/vi/0flkN4jtgCs/mqdefault.jpg',
-  //   level: 'advanced',
-  // },
-];
 
-// Sample transcript
-// const sampleTranscript: TranscriptLine[] = [
-//   { id: '1', startTime: 5, endTime: 8, text: "Hi, I'd like to order a coffee please.", speaker: 'Customer' },
-//   { id: '2', startTime: 9, endTime: 12, text: 'Sure, what would you like?', speaker: 'Barista' },
-//   { id: '3', startTime: 13, endTime: 17, text: "I'll have a medium latte with oat milk, please.", speaker: 'Customer' },
-//   { id: '4', startTime: 18, endTime: 22, text: 'Would you like anything else with that?', speaker: 'Barista' },
-//   { id: '5', startTime: 23, endTime: 28, text: 'Yes, can I also get a chocolate croissant?', speaker: 'Customer' },
-//   { id: '6', startTime: 29, endTime: 32, text: 'Of course. That will be $8.50.', speaker: 'Barista' },
-//   { id: '7', startTime: 33, endTime: 37, text: 'Here you go. Do you have a rewards card?', speaker: 'Customer' },
-//   { id: '8', startTime: 38, endTime: 45, text: 'We do! Would you like to sign up? You get a free drink after purchasing 10.', speaker: 'Barista' },
-//   { id: '9', startTime: 46, endTime: 50, text: "That sounds great. I'll sign up for one.", speaker: 'Customer' },
-//   { id: '10', startTime: 51, endTime: 55, text: "Excellent. I'll just need your name and email address.", speaker: 'Barista' },
-// ];
 
 interface VideoItem {
   id: string;
@@ -74,38 +37,73 @@ const extractVideoId = (url: string) => {
   return null;
 };
 
-async function FetchTranscriptData(video_url: string) : Promise<any> {
-    // Step 1: check if transcript exists
-    try {
-      console.log('HVH FetchTranscriptData called with video_url:', video_url);
-      const isTranscriptExist = await GET_transcript_status(video_url);
-      if (!isTranscriptExist) {
-        console.log('HVH transcript does not exist');
-        return JSON.stringify({
-          video_url: video_url,
-          transcript: [],
-          error: "generating"
-        });
-      }
-      else {
-        // Step 2: fetch the transcript
+async function CheckTranscriptStatus(video_url: string): Promise<{status: 'ready' | 'generating' | 'failed' | 'error', data?: any, message?: string}> {
+  try {
+    console.log('HVH CheckTranscriptStatus called with video_url:', video_url);
+    
+    // Check if transcript exists and get status
+    const response = await GET_transcript_status(video_url);
+    const responseData = await response.json();
+    console.log('HVH responseData:', responseData);
+    if (response.status === 200) {
+      // Transcript is ready, fetch it
+      try {
         const transcript = await GET_transcript_v2(video_url);
         console.log('HVH fetched transcript:', transcript);
-        return JSON.stringify({
-          video_url: video_url,
-          transcript: transcript["transcript"] || [],
-          error: ""
-        });
+        return {
+          status: 'ready',
+          data: transcript["transcript"] || [],
+          message: "Transcript is ready"
+        };
+      } catch (fetchError) {
+        console.error('HVH error fetching transcript:', fetchError);
+        return {
+          status: 'error',
+          message: "Failed to fetch transcript"
+        };
+      }
+    } 
+    else if (response.status === 202) {
+      // Transcript doesn't exist yet, it might be generating
+      const msg = responseData.message;
+      if (msg.includes('Transcript is being generated')) {
+        return {
+          status: 'generating',
+          message: "Transcript is being generated, please wait"
+        };
+      }
+      else  {
+        return {
+          status: 'failed',
+          message: "Transcript failed to generate, please try again"
+        };
       }
     }
-    catch (error) {
-      console.error('HVH error in FetchTranscriptData:', error);
-      return JSON.stringify({
-        video_url: video_url,
-        transcript: [],
-        error: "failed"
-      });
+    else {
+      console.log('HVH response:', response);
+      if(response.status === 404) {
+        const error_msg = responseData.error;
+        if(error_msg.includes('Video not found')) {
+          return {
+            status: 'generating',
+            message: "Transcript is being generated, please wait"
+          };
+        }
+      }
+      // Other error
+      return {
+        status: 'error',
+        message: "An unexpected error occurred while checking transcript status"
+      };
     }
+  }
+  catch (error: any) {
+    console.error('HVH error in CheckTranscriptStatus:', error);
+    return {
+      status: 'error',
+      message: "An unexpected error occurred while checking transcript status"
+    };
+  }
 }
 
 const RepeatPractice: React.FC = () => {
@@ -124,6 +122,86 @@ const RepeatPractice: React.FC = () => {
   const [isTranscriptLoaded, setIsTranscriptLoaded] = useState(false);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
+  const [isPollingTranscript, setIsPollingTranscript] = useState(false);
+  const [pollingAttempts, setPollingAttempts] = useState(0);
+  const [pollingTimeoutId, setPollingTimeoutId] = useState<NodeJS.Timeout | null>(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingTimeoutId) {
+        clearTimeout(pollingTimeoutId);
+      }
+    };
+  }, [pollingTimeoutId]);
+
+  // Polling mechanism with exponential backoff
+  const getPollingDelay = (attempts: number): number => {
+    const baseDelays = [10, 30, 60]; // seconds
+    const delayIndex = attempts % baseDelays.length;
+    return baseDelays[delayIndex] * 1000; // convert to milliseconds
+  };
+
+  const startPollingTranscript = async (videoUrl: string, attempts: number = 0) => {
+    console.log(`HVH Starting polling attempt ${attempts + 1} for video: ${videoUrl}`);
+    
+    try {
+      const result = await CheckTranscriptStatus(videoUrl);
+      
+      if (result.status === 'ready') {
+        // Success! Transcript is ready
+        console.log('HVH Transcript is ready!');
+        setActiveTranscript(result.data || []);
+        setTranscriptError(null);
+        setIsPollingTranscript(false);
+        setIsLoadingTranscript(false);
+        setIsTranscriptLoaded(true);
+        setPollingAttempts(0);
+        return;
+      } else if (result.status === 'failed') {
+        // Transcript generation failed permanently
+        console.log('HVH Transcript generation failed permanently');
+        setTranscriptError(result.message || "Transcript failed to generate, please try again");
+        setActiveTranscript([]);
+        setIsPollingTranscript(false);
+        setIsLoadingTranscript(false);
+        setIsTranscriptLoaded(true);
+        setPollingAttempts(0);
+        return;
+      } else if (result.status === 'generating') {
+        // Still generating, continue polling
+        const nextAttempts = attempts + 1;
+        const delay = getPollingDelay(attempts);
+        
+        console.log(`HVH Transcript still generating, waiting ${delay/1000}s before next attempt`);
+        setPollingAttempts(nextAttempts);
+        setTranscriptError(`Transcript is being generated... (attempt ${nextAttempts}, retrying in ${delay/1000}s)`);
+        
+        const timeoutId = setTimeout(() => {
+          startPollingTranscript(videoUrl, nextAttempts);
+        }, delay);
+        
+        setPollingTimeoutId(timeoutId);
+      } else {
+        // Error status
+        console.log('HVH Error checking transcript status');
+        setTranscriptError(result.message || "An error occurred while checking transcript status");
+        setActiveTranscript([]);
+        setIsPollingTranscript(false);
+        setIsLoadingTranscript(false);
+        setIsTranscriptLoaded(true);
+        setPollingAttempts(0);
+      }
+    } catch (error) {
+      console.error('HVH Error in polling:', error);
+      setTranscriptError("An unexpected error occurred while checking transcript status");
+      setActiveTranscript([]);
+      setIsPollingTranscript(false);
+      setIsLoadingTranscript(false);
+      setIsTranscriptLoaded(true);
+      setPollingAttempts(0);
+    }
+  };
 
   // Default Effect to fetch initial videos
   useEffect(() => {
@@ -152,7 +230,13 @@ const RepeatPractice: React.FC = () => {
 
 
   
-  const handleVideoSelect = (video: VideoItem) => {
+  const handleVideoSelect = async (video: VideoItem) => {
+    // Clear any existing polling
+    if (pollingTimeoutId) {
+      clearTimeout(pollingTimeoutId);
+      setPollingTimeoutId(null);
+    }
+
     setSelectedVideo(video);
     setIsSelectingVideo(false);
     // Reset state when selecting a new video
@@ -161,42 +245,55 @@ const RepeatPractice: React.FC = () => {
     setActiveLineId(undefined);
     setIsTranscriptLoaded(false);
     setIsLoadingTranscript(true);
+    setIsPollingTranscript(false);
     setTranscriptError(null);
-
+    setPollingAttempts(0);
     setActiveTranscript([]);
-    console.log('HVH Fetching transcript for selected video:', video.url);
-    FetchTranscriptData(video.url)
-      .then(result => {
-        const data = JSON.parse(result);
-        if (data.error) {
-          console.error('HVH error fetching transcript:', data.error);
-          setActiveTranscript([]);
-          if (data.error === "generating") {
-            setTranscriptError("Transcript is being generated. This may take a few minutes. Please try again later.");
-          } else if (data.error === "failed") {
-            setTranscriptError("Failed to load transcript. Please try again or check your internet connection.");
-          }
-        } else {
-          console.log('HVH fetched transcript:', data.transcript);
-          setActiveTranscript(data.transcript);
-          setTranscriptError(null);
-        }
-      })
-      .catch(error => {
-        console.error('HVH error fetching transcript:', error);
-        setActiveTranscript([]);
-        setTranscriptError("An unexpected error occurred while loading the transcript.");
-      })
-      .finally(() => {
+
+    // Reset other state when changing video
+    setCurrentTime(0);
+    setSeekTime(null);
+
+    console.log('HVH Checking transcript status for selected video:', video.url);
+    
+    try {
+      const result = await CheckTranscriptStatus(video.url);
+      
+      if (result.status === 'ready') {
+        // Transcript is ready immediately
+        console.log('HVH Transcript is ready immediately');
+        setActiveTranscript(result.data || []);
+        setTranscriptError(null);
         setIsLoadingTranscript(false);
         setIsTranscriptLoaded(true);
-      });
-    // Reset state when changing video
-    setCurrentTime(0);
-    setActiveLineId(undefined);
-    setRecordings({});
-    setCompletedLines([]);
-    setSeekTime(null);
+      } else if (result.status === 'generating') {
+        // Start polling mechanism
+        console.log('HVH Transcript is generating, starting polling');
+        setIsPollingTranscript(true);
+        setIsLoadingTranscript(false);
+        startPollingTranscript(video.url, 0);
+      } else if (result.status === 'failed') {
+        // Transcript generation failed permanently
+        console.log('HVH Transcript generation failed');
+        setTranscriptError(result.message || "Transcript failed to generate, please try again");
+        setActiveTranscript([]);
+        setIsLoadingTranscript(false);
+        setIsTranscriptLoaded(true);
+      } else {
+        // Error status
+        console.log('HVH Error checking transcript status');
+        setTranscriptError(result.message || "An error occurred while checking transcript status");
+        setActiveTranscript([]);
+        setIsLoadingTranscript(false);
+        setIsTranscriptLoaded(true);
+      }
+    } catch (error: any) {
+      console.error('HVH Error in handleVideoSelect:', error);
+      setTranscriptError("An unexpected error occurred while loading the transcript.");
+      setActiveTranscript([]);
+      setIsLoadingTranscript(false);
+      setIsTranscriptLoaded(true);
+    }
   };
 
   const handleCustomVideoSubmit = (e: React.FormEvent) => {
@@ -461,14 +558,16 @@ const RepeatPractice: React.FC = () => {
                       <p className="text-lg text-gray-900">
                         {isLoadingTranscript 
                           ? 'Loading transcript...' 
-                          : transcriptError 
-                            ? 'Transcript not available' 
-                            : currentLineContent || 'Select a line from the transcript'
+                          : isPollingTranscript
+                            ? 'Generating transcript...'
+                            : transcriptError 
+                              ? 'Transcript not available' 
+                              : currentLineContent || 'Select a line from the transcript'
                         }
                       </p>
                     </div>
                     
-                    {activeLineId && !isLoadingTranscript && !transcriptError && (
+                    {activeLineId && !isLoadingTranscript && !isPollingTranscript && !transcriptError && (
                       <AudioRecorder
                         onRecordingComplete={handleRecordingComplete}
                         label="Repeat the phrase"
@@ -486,6 +585,36 @@ const RepeatPractice: React.FC = () => {
                         <p className="text-gray-600">Loading transcript...</p>
                       </div>
                     </div>
+                  ) : isPollingTranscript ? (
+                    <div className="card p-8">
+                      <div className="text-center">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="flex items-center justify-center mb-3">
+                            <div className="bg-blue-100 rounded-full p-2">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            </div>
+                          </div>
+                          <h3 className="text-lg font-medium text-blue-800 mb-2">Generating Transcript</h3>
+                          <p className="text-blue-700 text-sm mb-4">
+                            {transcriptError || `Transcript is being generated... (attempt ${pollingAttempts})`}
+                          </p>
+                          <button
+                            onClick={() => {
+                              if (pollingTimeoutId) {
+                                clearTimeout(pollingTimeoutId);
+                                setPollingTimeoutId(null);
+                              }
+                              setIsPollingTranscript(false);
+                              setTranscriptError("Transcript generation cancelled by user");
+                              setIsTranscriptLoaded(true);
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   ) : transcriptError ? (
                     <div className="card p-8">
                       <div className="text-center">
@@ -499,7 +628,7 @@ const RepeatPractice: React.FC = () => {
                           </div>
                           <h3 className="text-lg font-medium text-yellow-800 mb-2">Transcript Not Available</h3>
                           <p className="text-yellow-700 text-sm">{transcriptError}</p>
-                          {transcriptError.includes("generating") && (
+                          {(transcriptError.includes("generating") || transcriptError.includes("failed")) && (
                             <button
                               onClick={() => handleVideoSelect(selectedVideo!)}
                               className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors text-sm"
