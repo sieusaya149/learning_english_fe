@@ -81,6 +81,11 @@ async function FetchTranscriptData(video_url: string) : Promise<any> {
       const isTranscriptExist = await GET_transcript_status(video_url);
       if (!isTranscriptExist) {
         console.log('HVH transcript does not exist');
+        return JSON.stringify({
+          video_url: video_url,
+          transcript: [],
+          error: "generating"
+        });
       }
       else {
         // Step 2: fetch the transcript
@@ -89,13 +94,17 @@ async function FetchTranscriptData(video_url: string) : Promise<any> {
         return JSON.stringify({
           video_url: video_url,
           transcript: transcript["transcript"] || [],
-          error :""
-        })
+          error: ""
+        });
       }
     }
     catch (error) {
       console.error('HVH error in FetchTranscriptData:', error);
-      throw new Error('Error in FetchTranscriptData');
+      return JSON.stringify({
+        video_url: video_url,
+        transcript: [],
+        error: "failed"
+      });
     }
 }
 
@@ -113,6 +122,8 @@ const RepeatPractice: React.FC = () => {
   const [urlError, setUrlError] = useState('');
   const [existingVideos, setExistingVideos] = useState<VideoItem[]>([]); // For future use
   const [isTranscriptLoaded, setIsTranscriptLoaded] = useState(false);
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
 
   // Default Effect to fetch initial videos
   useEffect(() => {
@@ -149,6 +160,8 @@ const RepeatPractice: React.FC = () => {
     setCompletedLines([]);
     setActiveLineId(undefined);
     setIsTranscriptLoaded(false);
+    setIsLoadingTranscript(true);
+    setTranscriptError(null);
 
     setActiveTranscript([]);
     console.log('HVH Fetching transcript for selected video:', video.url);
@@ -158,16 +171,24 @@ const RepeatPractice: React.FC = () => {
         if (data.error) {
           console.error('HVH error fetching transcript:', data.error);
           setActiveTranscript([]);
+          if (data.error === "generating") {
+            setTranscriptError("Transcript is being generated. This may take a few minutes. Please try again later.");
+          } else if (data.error === "failed") {
+            setTranscriptError("Failed to load transcript. Please try again or check your internet connection.");
+          }
         } else {
           console.log('HVH fetched transcript:', data.transcript);
           setActiveTranscript(data.transcript);
+          setTranscriptError(null);
         }
       })
       .catch(error => {
         console.error('HVH error fetching transcript:', error);
         setActiveTranscript([]);
+        setTranscriptError("An unexpected error occurred while loading the transcript.");
       })
       .finally(() => {
+        setIsLoadingTranscript(false);
         setIsTranscriptLoaded(true);
       });
     // Reset state when changing video
@@ -197,11 +218,12 @@ const RepeatPractice: React.FC = () => {
       url: youtubeUrl,
     };
   
+    // Generate transcript for new video
     POST_Generate_Transcript(youtubeUrl).then(result => {
       console.log('HVH generated transcript for custom video:', result);
     }).catch(error => {
       console.error('HVH error generating transcript for custom video:', error);
-    })
+    });
 
     handleVideoSelect(customVideo);
   };
@@ -436,10 +458,17 @@ const RepeatPractice: React.FC = () => {
                     </div>
                     
                     <div className="bg-blue-50 p-4 rounded-md mb-4">
-                      <p className="text-lg text-gray-900">{currentLineContent || 'Select a line from the transcript'}</p>
+                      <p className="text-lg text-gray-900">
+                        {isLoadingTranscript 
+                          ? 'Loading transcript...' 
+                          : transcriptError 
+                            ? 'Transcript not available' 
+                            : currentLineContent || 'Select a line from the transcript'
+                        }
+                      </p>
                     </div>
                     
-                    {activeLineId && (
+                    {activeLineId && !isLoadingTranscript && !transcriptError && (
                       <AudioRecorder
                         onRecordingComplete={handleRecordingComplete}
                         label="Repeat the phrase"
@@ -450,12 +479,45 @@ const RepeatPractice: React.FC = () => {
                 </div>
                 
                 <div>
-                  <TranscriptDisplay
-                    transcript={activeTranscript}
-                    currentTime={currentTime}
-                    onLineClick={handleLineClick}
-                    activeLineId={activeLineId}
-                  />
+                  {isLoadingTranscript ? (
+                    <div className="card p-8">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading transcript...</p>
+                      </div>
+                    </div>
+                  ) : transcriptError ? (
+                    <div className="card p-8">
+                      <div className="text-center">
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <div className="flex items-center justify-center mb-2">
+                            <div className="bg-yellow-100 rounded-full p-2">
+                              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                            </div>
+                          </div>
+                          <h3 className="text-lg font-medium text-yellow-800 mb-2">Transcript Not Available</h3>
+                          <p className="text-yellow-700 text-sm">{transcriptError}</p>
+                          {transcriptError.includes("generating") && (
+                            <button
+                              onClick={() => handleVideoSelect(selectedVideo!)}
+                              className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors text-sm"
+                            >
+                              Try Again
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <TranscriptDisplay
+                      transcript={activeTranscript}
+                      currentTime={currentTime}
+                      onLineClick={handleLineClick}
+                      activeLineId={activeLineId}
+                    />
+                  )}
                   
                   {completedLines.length > 0 && (
                     <div className="card mt-6">
