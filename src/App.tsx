@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import RepeatPractice from './pages/RepeatPractice';
 import PhrasePractice from './pages/PhrasePractice';
 import ShadowPractice from './pages/ShadowPractice';
+import ApiTester from './components/ApiTester';
 
 const App: React.FC = () => {
   const { isLoading } = useAuth0();
@@ -46,6 +47,11 @@ const App: React.FC = () => {
         <Route path="shadow" element={
           <ProtectedRoute>
             <ShadowPractice />
+          </ProtectedRoute>
+        } />
+        <Route path="api-tester" element={
+          <ProtectedRoute>
+            <ApiTester />
           </ProtectedRoute>
         } />
       </Route>

@@ -4,7 +4,7 @@ import TranscriptDisplay, { TranscriptLine } from '../components/TranscriptDispl
 import AudioRecorder from '../components/AudioRecorder';
 import { YoutubeIcon, ChevronLeft, ChevronRight, Save, Link } from 'lucide-react';
 import clsx from 'clsx';
-import { GET_videos_v1, GET_transcript_v2, GET_transcript_status, POST_Generate_Transcript } from '../utils/apis';
+import { videoApi } from '../utils/VideoApis';
 
 
 interface VideoItem {
@@ -20,6 +20,13 @@ interface RecordingState {
   lineId: string;
   blob?: Blob;
   url?: string;
+}
+
+enum TranscriptStatus {
+  READY = 'ready',
+  GENERATING = 'generating',
+  FAILED = 'failed',
+  ERROR = 'error'
 }
 
 const extractVideoId = (url: string) => {
@@ -38,64 +45,27 @@ const extractVideoId = (url: string) => {
 };
 
 async function CheckTranscriptStatus(video_url: string): Promise<{status: 'ready' | 'generating' | 'failed' | 'error', data?: any, message?: string}> {
+  let transcriptStatus: TranscriptStatus = TranscriptStatus.ERROR;
   try {
     console.log('HVH CheckTranscriptStatus called with video_url:', video_url);
-    
-    // Check if transcript exists and get status
-    const response = await GET_transcript_status(video_url);
-    const responseData = await response.json();
-    console.log('HVH responseData:', responseData);
-    if (response.status === 200) {
-      // Transcript is ready, fetch it
-      try {
-        const transcript = await GET_transcript_v2(video_url);
-        console.log('HVH fetched transcript:', transcript);
-        return {
-          status: 'ready',
-          data: transcript["transcript"] || [],
-          message: "Transcript is ready"
-        };
-      } catch (fetchError) {
-        console.error('HVH error fetching transcript:', fetchError);
-        return {
-          status: 'error',
-          message: "Failed to fetch transcript"
-        };
-      }
-    } 
-    else if (response.status === 202) {
-      // Transcript doesn't exist yet, it might be generating
-      const msg = responseData.message;
-      if (msg.includes('Transcript is being generated')) {
-        return {
-          status: 'generating',
-          message: "Transcript is being generated, please wait"
-        };
-      }
-      else  {
-        return {
-          status: 'failed',
-          message: "Transcript failed to generate, please try again"
-        };
-      }
+    const responseData = await videoApi.getTranscriptStatus(video_url);
+
+    if(responseData.message.includes('Transcript is being generated')) {
+      transcriptStatus = TranscriptStatus.GENERATING;
+    }
+    else if(responseData.message.includes('Transcript is ready')) {
+      transcriptStatus = TranscriptStatus.READY;
     }
     else {
-      console.log('HVH response:', response);
-      if(response.status === 404) {
-        const error_msg = responseData.error;
-        if(error_msg.includes('Video not found')) {
-          return {
-            status: 'generating',
-            message: "Transcript is being generated, please wait"
-          };
-        }
-      }
-      // Other error
-      return {
-        status: 'error',
-        message: "An unexpected error occurred while checking transcript status"
-      };
+      transcriptStatus = TranscriptStatus.FAILED;
     }
+
+    console.log('HVH transcript status:', transcriptStatus);
+
+    return {
+      status: transcriptStatus,
+      message: responseData.message
+    };
   }
   catch (error: any) {
     console.error('HVH error in CheckTranscriptStatus:', error);
@@ -147,50 +117,50 @@ const RepeatPractice: React.FC = () => {
     
     try {
       const result = await CheckTranscriptStatus(videoUrl);
-      
-      if (result.status === 'ready') {
-        // Success! Transcript is ready
-        console.log('HVH Transcript is ready!');
-        setActiveTranscript(result.data || []);
-        setTranscriptError(null);
-        setIsPollingTranscript(false);
-        setIsLoadingTranscript(false);
-        setIsTranscriptLoaded(true);
-        setPollingAttempts(0);
-        return;
-      } else if (result.status === 'failed') {
-        // Transcript generation failed permanently
-        console.log('HVH Transcript generation failed permanently');
-        setTranscriptError(result.message || "Transcript failed to generate, please try again");
-        setActiveTranscript([]);
-        setIsPollingTranscript(false);
-        setIsLoadingTranscript(false);
-        setIsTranscriptLoaded(true);
-        setPollingAttempts(0);
-        return;
-      } else if (result.status === 'generating') {
-        // Still generating, continue polling
-        const nextAttempts = attempts + 1;
-        const delay = getPollingDelay(attempts);
-        
-        console.log(`HVH Transcript still generating, waiting ${delay/1000}s before next attempt`);
-        setPollingAttempts(nextAttempts);
-        setTranscriptError(`Transcript is being generated... (attempt ${nextAttempts}, retrying in ${delay/1000}s)`);
-        
-        const timeoutId = setTimeout(() => {
-          startPollingTranscript(videoUrl, nextAttempts);
-        }, delay);
-        
-        setPollingTimeoutId(timeoutId);
-      } else {
-        // Error status
-        console.log('HVH Error checking transcript status');
-        setTranscriptError(result.message || "An error occurred while checking transcript status");
-        setActiveTranscript([]);
-        setIsPollingTranscript(false);
-        setIsLoadingTranscript(false);
-        setIsTranscriptLoaded(true);
-        setPollingAttempts(0);
+      // turn to switch case with enum TranscriptStatus
+      switch (result.status) {
+        case TranscriptStatus.READY:
+          const transcriptResponse = await videoApi.getTranscript(videoUrl);
+          console.log('HVH fetched transcript:', transcriptResponse);
+          setActiveTranscript(transcriptResponse["transcript"] || []);
+          setTranscriptError(null);
+          setIsPollingTranscript(false);
+          setIsLoadingTranscript(false);
+          setIsTranscriptLoaded(true);
+          setPollingAttempts(0);
+          break;
+        case TranscriptStatus.FAILED:
+          console.log('HVH Transcript generation failed permanently');
+          setTranscriptError(result.message || "Transcript failed to generate, please try again");
+          setActiveTranscript([]);
+          setIsPollingTranscript(false);
+          setIsLoadingTranscript(false);
+          setIsTranscriptLoaded(true);
+          setPollingAttempts(0);
+          break;
+        case TranscriptStatus.GENERATING:
+          const nextAttempts = attempts + 1;
+          const delay = getPollingDelay(attempts);
+          
+          console.log(`HVH Transcript still generating, waiting ${delay/1000}s before next attempt`);
+          setPollingAttempts(nextAttempts);
+          setTranscriptError(`Transcript is being generated... (attempt ${nextAttempts}, retrying in ${delay/1000}s)`);
+          
+          const timeoutId = setTimeout(() => {
+            startPollingTranscript(videoUrl, nextAttempts);
+          }, delay);
+          
+          setPollingTimeoutId(timeoutId);
+          break;
+        case TranscriptStatus.ERROR:
+          console.log('HVH Error checking transcript status');
+          setTranscriptError(result.message || "An error occurred while checking transcript status");
+          setActiveTranscript([]);
+          setIsPollingTranscript(false);
+          setIsLoadingTranscript(false);
+          setIsTranscriptLoaded(true);
+          setPollingAttempts(0);
+          break;
       }
     } catch (error) {
       console.error('HVH Error in polling:', error);
@@ -205,7 +175,7 @@ const RepeatPractice: React.FC = () => {
 
   // Default Effect to fetch initial videos
   useEffect(() => {
-    GET_videos_v1()
+      videoApi.getVideos()
       .then(videos => {
         console.log('HVH fetched videos:', videos);
         videos = videos.map((video: any) => {
@@ -259,34 +229,38 @@ const RepeatPractice: React.FC = () => {
     try {
       const result = await CheckTranscriptStatus(video.url);
       
-      if (result.status === 'ready') {
-        // Transcript is ready immediately
+      switch (result.status) {
+        case TranscriptStatus.READY:
+        // Transcript is ready immediatel
+        const transcriptResponse = await videoApi.getTranscript(video.url);
         console.log('HVH Transcript is ready immediately');
-        setActiveTranscript(result.data || []);
+        setActiveTranscript(transcriptResponse["transcript"] || []);
         setTranscriptError(null);
         setIsLoadingTranscript(false);
         setIsTranscriptLoaded(true);
-      } else if (result.status === 'generating') {
-        // Start polling mechanism
-        console.log('HVH Transcript is generating, starting polling');
-        setIsPollingTranscript(true);
-        setIsLoadingTranscript(false);
-        startPollingTranscript(video.url, 0);
-      } else if (result.status === 'failed') {
-        // Transcript generation failed permanently
-        console.log('HVH Transcript generation failed');
-        setTranscriptError(result.message || "Transcript failed to generate, please try again");
-        setActiveTranscript([]);
-        setIsLoadingTranscript(false);
-        setIsTranscriptLoaded(true);
-      } else {
-        // Error status
-        console.log('HVH Error checking transcript status');
-        setTranscriptError(result.message || "An error occurred while checking transcript status");
-        setActiveTranscript([]);
-        setIsLoadingTranscript(false);
-        setIsTranscriptLoaded(true);
-      }
+        break;
+        case TranscriptStatus.GENERATING:
+          console.log('HVH Transcript is generating, starting polling');
+          setIsPollingTranscript(true);
+          setIsLoadingTranscript(false);
+          startPollingTranscript(video.url, 0);
+        break;
+        case TranscriptStatus.FAILED:
+          // Transcript generation failed permanently
+          console.log('HVH Transcript generation failed');
+          setTranscriptError(result.message || "Transcript failed to generate, please try again");
+          setActiveTranscript([]);
+          setIsLoadingTranscript(false);
+          setIsTranscriptLoaded(true);
+          break;
+        case TranscriptStatus.ERROR: 
+          console.log('HVH Error checking transcript status');
+          setTranscriptError(result.message || "An error occurred while checking transcript status");
+          setActiveTranscript([]);
+          setIsLoadingTranscript(false);
+          setIsTranscriptLoaded(true);
+          break;
+        }
     } catch (error: any) {
       console.error('HVH Error in handleVideoSelect:', error);
       setTranscriptError("An unexpected error occurred while loading the transcript.");
@@ -316,7 +290,7 @@ const RepeatPractice: React.FC = () => {
     };
   
     // Generate transcript for new video
-    POST_Generate_Transcript(youtubeUrl).then(result => {
+    videoApi.generateTranscript(youtubeUrl).then(result => {
       console.log('HVH generated transcript for custom video:', result);
     }).catch(error => {
       console.error('HVH error generating transcript for custom video:', error);

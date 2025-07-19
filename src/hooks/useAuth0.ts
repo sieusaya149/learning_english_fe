@@ -1,4 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { useCallback } from 'react';
 
 export const useAuth = () => {
   const {
@@ -9,7 +10,22 @@ export const useAuth = () => {
     loginWithPopup,
     logout: auth0Logout,
     error,
+    getAccessTokenSilently,
   } = useAuth0();
+
+  // Function to get access token for API calls
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    try {
+      if (!isAuthenticated) {
+        return null;
+      }
+      const token = await getAccessTokenSilently();
+      return token;
+    } catch (error) {
+      console.error('Error getting access token:', error);
+      return null;
+    }
+  }, [isAuthenticated, getAccessTokenSilently]);
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
@@ -82,11 +98,13 @@ export const useAuth = () => {
   return {
     user: isAuthenticated ? user : null,
     loading: isLoading,
+    isAuthenticated,
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
     signInWithFacebook,
     logout,
     error,
+    getAccessToken,
   };
 };
