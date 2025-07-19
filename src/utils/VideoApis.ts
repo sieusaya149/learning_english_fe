@@ -1,92 +1,6 @@
 import { ApiClient, apiClient } from './ApiClient';
 
-// === SIMPLE API FUNCTIONS (flexible versions) ===
-
-// Public API functions - can use different versions per endpoint
-export async function GET_videos_v1(): Promise<any> {
-  return apiClient.get('videos', { apiVersion: '/v1/api' });
-}
-
-export async function GET_videos_v2(): Promise<any> {
-  return apiClient.get('videos', { apiVersion: '/v2/api' });
-}
-
-export async function GET_transcript_status(video_url: string, version: 'v1' | 'v2' = 'v1'): Promise<any> {
-  return apiClient.get('transcript-status', {
-    query: { video_url },
-    apiVersion: version === 'v1' ? '/v1/api' : '/v2/api'
-  });
-}
-
-export async function GET_transcript_v1(video_url: string): Promise<any> {
-  return apiClient.get('transcript', {
-    query: { video_url },
-    apiVersion: '/v1/api'
-  });
-}
-
-export async function GET_transcript_v2(video_url: string): Promise<any> {
-  return apiClient.get('transcript', {
-    query: { video_url },
-    apiVersion: '/v2/api'
-  });
-}
-
-export async function POST_Generate_Transcript(video_url: string, version: 'v1' | 'v2' = 'v1'): Promise<any> {
-  return apiClient.post('generate_transcript', 
-    { video_url },
-    { apiVersion: version === 'v1' ? '/v1/api' : '/v2/api' }
-  );
-}
-
-// Authenticated API functions - flexible versions
-export async function GET_videos_authenticated(client: ApiClient, version: 'v1' | 'v2' = 'v1'): Promise<any> {
-  return client.get('videos', { 
-    authenticated: true,
-    apiVersion: version === 'v1' ? '/v1/api' : '/v2/api'
-  });
-}
-
-export async function GET_transcript_status_authenticated(
-  video_url: string, 
-  client: ApiClient,
-  version: 'v1' | 'v2' = 'v1'
-): Promise<any> {
-  return client.get('transcript-status', {
-    query: { video_url },
-    authenticated: true,
-    apiVersion: version === 'v1' ? '/v1/api' : '/v2/api'
-  });
-}
-
-export async function GET_transcript_authenticated(
-  video_url: string, 
-  client: ApiClient,
-  version: 'v1' | 'v2' = 'v1'
-): Promise<any> {
-  return client.get('transcript', {
-    query: { video_url },
-    authenticated: true,
-    apiVersion: version === 'v1' ? '/v1/api' : '/v2/api'
-  });
-}
-
-export async function POST_Generate_Transcript_authenticated(
-  video_url: string, 
-  client: ApiClient,
-  version: 'v1' | 'v2' = 'v1'
-): Promise<any> {
-  return client.post('generate_transcript', 
-    { video_url },
-    { 
-      authenticated: true,
-      apiVersion: version === 'v1' ? '/v1/api' : '/v2/api'
-    }
-  );
-}
-
 // === CLASS-BASED API APPROACH (flexible versions) ===
-
 export class VideoAPI {
   constructor(protected client: ApiClient) {}
 
@@ -187,7 +101,6 @@ export class AuthenticatedVideoAPI extends VideoAPI {
 }
 
 // === FACTORY FUNCTIONS ===
-
 export const createVideoAPI = (client: ApiClient) => new VideoAPI(client);
 export const createAuthenticatedVideoAPI = (client: ApiClient) => new AuthenticatedVideoAPI(client);
 
@@ -304,6 +217,13 @@ export class PracticeAPI {
 export const createUserAPI = (client: ApiClient) => new UserAPI(client);
 export const createPracticeAPI = (client: ApiClient) => new PracticeAPI(client);
 
-
-
+// === READY-TO-USE API INSTANCES ===
+// Public video API (no authentication required)
 export const videoApi = new VideoAPI(apiClient);
+
+// Helper function to create authenticated video API with Auth0 token
+export const createAuthenticatedVideoApi = (getAccessToken: () => Promise<string | null>) => {
+  const authClient = new ApiClient();
+  authClient.setAuthTokenGetter(getAccessToken);
+  return new AuthenticatedVideoAPI(authClient);
+};

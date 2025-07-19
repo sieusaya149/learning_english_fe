@@ -17,12 +17,15 @@ export const useAuth = () => {
   const getAccessToken = useCallback(async (): Promise<string | null> => {
     try {
       if (!isAuthenticated) {
+        console.log('🚫 Not authenticated, returning null token');
         return null;
       }
+      
       const token = await getAccessTokenSilently();
+      console.log('🔑 Retrieved Auth0 token:', token ? '✅ Valid' : '❌ None');
       return token;
     } catch (error) {
-      console.error('Error getting access token:', error);
+      console.error('❌ Error getting access token:', error);
       return null;
     }
   }, [isAuthenticated, getAccessTokenSilently]);
@@ -84,13 +87,17 @@ export const useAuth = () => {
 
   const logout = async () => {
     try {
+      console.log('🔓 Logging out and clearing Auth0 cache...');
+      
       auth0Logout({
         logoutParams: {
           returnTo: window.location.origin,
         },
       });
+      
       return { error: null };
     } catch (error: any) {
+      console.error('❌ Error during logout:', error);
       return { error: error.message };
     }
   };

@@ -4,7 +4,7 @@ import { Repeat, BookOpen, Mic, ChevronRight, Star, Video, BookMarked, User } fr
 import clsx from 'clsx';
 import { useAuth } from '../hooks/useAuth0';
 import { useApiClient } from '../hooks/useApiClient';
-import { GET_videos_authenticated, createUserAPI } from '../utils/VideoApis';
+import { createUserAPI } from '../utils/VideoApis';
 
 const features = [
   {
@@ -56,9 +56,6 @@ const Dashboard: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch videos using new ApiClient approach
-        const videos = await GET_videos_authenticated(authApiV1);
-        
         // Fetch user practice data using UserAPI
         const userAPI = createUserAPI(authApiV1);
         let practiceMinutes = 0;
@@ -74,7 +71,7 @@ const Dashboard: React.FC = () => {
 
         // Update stats with real data
         setStats([
-          { label: 'Videos Available', value: videos?.length || 0, icon: Video },
+          { label: 'Videos Available', value: 500, icon: Video },
           { label: 'Practice Phrases', value: 500, icon: BookMarked },
           { label: 'Practice Minutes', value: practiceMinutes, icon: Star },
         ]);

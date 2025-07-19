@@ -1,5 +1,8 @@
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const apiPort = import.meta.env.VITE_API_PORT;
+
 interface ApiClientConfig {
   baseUrl?: string;
   defaultApiVersion?: string;
@@ -26,7 +29,7 @@ export class ApiClient {
   private getAccessToken?: () => Promise<string | null>;
 
   constructor(config: ApiClientConfig = {}) {
-    this.baseUrl = config.baseUrl || 'https://bindev.online';
+    this.baseUrl = config.baseUrl || `${apiBaseUrl}:${apiPort}`;
     this.defaultApiVersion = config.defaultApiVersion || '/v1/api';
     this.defaultHeaders = {
       'Content-Type': 'application/json',
@@ -80,6 +83,7 @@ export class ApiClient {
     // Add authentication header if needed
     if (authenticated && this.getAccessToken) {
       const token = await this.getAccessToken();
+      console.log('HVH token:', token);
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       } else {
@@ -108,6 +112,7 @@ export class ApiClient {
     try {
       const url = this.buildUrl(endpoint, apiVersion, query);
       const headers = await this.buildHeaders(requestHeaders, authenticated);
+      console.log('header is ', headers)
 
       // Create AbortController for timeout
       const controller = new AbortController();

@@ -4,7 +4,7 @@ import TranscriptDisplay, { TranscriptLine } from '../components/TranscriptDispl
 import AudioRecorder from '../components/AudioRecorder';
 import { YoutubeIcon, ChevronLeft, ChevronRight, Save, Link } from 'lucide-react';
 import clsx from 'clsx';
-import { videoApi } from '../utils/VideoApis';
+import { useVideoApi } from '../hooks/useVideoApi';
 
 
 interface VideoItem {
@@ -44,39 +44,10 @@ const extractVideoId = (url: string) => {
   return null;
 };
 
-async function CheckTranscriptStatus(video_url: string): Promise<{status: 'ready' | 'generating' | 'failed' | 'error', data?: any, message?: string}> {
-  let transcriptStatus: TranscriptStatus = TranscriptStatus.ERROR;
-  try {
-    console.log('HVH CheckTranscriptStatus called with video_url:', video_url);
-    const responseData = await videoApi.getTranscriptStatus(video_url);
 
-    if(responseData.message.includes('Transcript is being generated')) {
-      transcriptStatus = TranscriptStatus.GENERATING;
-    }
-    else if(responseData.message.includes('Transcript is ready')) {
-      transcriptStatus = TranscriptStatus.READY;
-    }
-    else {
-      transcriptStatus = TranscriptStatus.FAILED;
-    }
-
-    console.log('HVH transcript status:', transcriptStatus);
-
-    return {
-      status: transcriptStatus,
-      message: responseData.message
-    };
-  }
-  catch (error: any) {
-    console.error('HVH error in CheckTranscriptStatus:', error);
-    return {
-      status: 'error',
-      message: "An unexpected error occurred while checking transcript status"
-    };
-  }
-}
 
 const RepeatPractice: React.FC = () => {
+  const { authVideoApi } = useVideoApi();
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [activeLineId, setActiveLineId] = useState<string | undefined>(undefined);
@@ -95,6 +66,39 @@ const RepeatPractice: React.FC = () => {
   const [isPollingTranscript, setIsPollingTranscript] = useState(false);
   const [pollingAttempts, setPollingAttempts] = useState(0);
   const [pollingTimeoutId, setPollingTimeoutId] = useState<NodeJS.Timeout | null>(null);
+
+
+  async function CheckTranscriptStatus(video_url: string): Promise<{status: 'ready' | 'generating' | 'failed' | 'error', data?: any, message?: string}> {
+    let transcriptStatus: TranscriptStatus = TranscriptStatus.ERROR;
+    try {
+      console.log('HVH CheckTranscriptStatus called with video_url:', video_url);
+      const responseData = await authVideoApi?.getTranscriptStatus(video_url);
+  
+      if(responseData.message.includes('Transcript is being generated')) {
+        transcriptStatus = TranscriptStatus.GENERATING;
+      }
+      else if(responseData.message.includes('Transcript is ready')) {
+        transcriptStatus = TranscriptStatus.READY;
+      }
+      else {
+        transcriptStatus = TranscriptStatus.FAILED;
+      }
+  
+      console.log('HVH transcript status:', transcriptStatus);
+  
+      return {
+        status: transcriptStatus,
+        message: responseData.message
+      };
+    }
+    catch (error: any) {
+      console.error('HVH error in CheckTranscriptStatus:', error);
+      return {
+        status: 'error',
+        message: "An unexpected error occurred while checking transcript status"
+      };
+    }
+  }
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -120,7 +124,7 @@ const RepeatPractice: React.FC = () => {
       // turn to switch case with enum TranscriptStatus
       switch (result.status) {
         case TranscriptStatus.READY:
-          const transcriptResponse = await videoApi.getTranscript(videoUrl);
+          const transcriptResponse = await authVideoApi?.getTranscript(videoUrl);
           console.log('HVH fetched transcript:', transcriptResponse);
           setActiveTranscript(transcriptResponse["transcript"] || []);
           setTranscriptError(null);
@@ -175,7 +179,7 @@ const RepeatPractice: React.FC = () => {
 
   // Default Effect to fetch initial videos
   useEffect(() => {
-      videoApi.getVideos()
+      authVideoApi?.getVideos()
       .then(videos => {
         console.log('HVH fetched videos:', videos);
         videos = videos.map((video: any) => {
@@ -232,7 +236,7 @@ const RepeatPractice: React.FC = () => {
       switch (result.status) {
         case TranscriptStatus.READY:
         // Transcript is ready immediatel
-        const transcriptResponse = await videoApi.getTranscript(video.url);
+        const transcriptResponse = await authVideoApi?.getTranscript(video.url);
         console.log('HVH Transcript is ready immediately');
         setActiveTranscript(transcriptResponse["transcript"] || []);
         setTranscriptError(null);
@@ -290,7 +294,7 @@ const RepeatPractice: React.FC = () => {
     };
   
     // Generate transcript for new video
-    videoApi.generateTranscript(youtubeUrl).then(result => {
+    authVideoApi?.generateTranscript(youtubeUrl).then(result => {
       console.log('HVH generated transcript for custom video:', result);
     }).catch(error => {
       console.error('HVH error generating transcript for custom video:', error);
@@ -326,7 +330,7 @@ const RepeatPractice: React.FC = () => {
     }
     
     // Move to the next line if available
-    const currentIndex = activeTranscript.findIndex(line => line.id === activeLineId);
+  const currentIndex = activeTranscript.findIndex(line => line.id === activeLineId);
     if (currentIndex < activeTranscript.length - 1) {
       setActiveLineId(activeTranscript[currentIndex + 1].id);
     }
