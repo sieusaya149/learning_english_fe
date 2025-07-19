@@ -1,10 +1,18 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Mic, AlertCircle } from 'lucide-react';
 import { useAuth0 } from '@auth0/auth0-react';
 
 const Login: React.FC = () => {
-  const { loginWithRedirect, isLoading, error } = useAuth0();
+  const { loginWithRedirect, isLoading, error, isAuthenticated } = useAuth0();
+  const navigate = useNavigate();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleLogin = () => {
     loginWithRedirect();
@@ -26,13 +34,14 @@ const Login: React.FC = () => {
     });
   };
 
-  const handleFacebookLogin = () => {
-    loginWithRedirect({
-      authorizationParams: {
-        connection: 'facebook',
-      },
-    });
-  };
+  // Facebook login commented out
+  // const handleFacebookLogin = () => {
+  //   loginWithRedirect({
+  //     authorizationParams: {
+  //       connection: 'facebook',
+  //     },
+  //   });
+  // };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -84,11 +93,12 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Updated to single column since Facebook is commented out */}
+            <div className="flex justify-center">
               <button
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                className="w-full max-w-xs inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -99,7 +109,8 @@ const Login: React.FC = () => {
                 <span className="ml-2">Google</span>
               </button>
 
-              <button
+              {/* Facebook login button commented out */}
+              {/* <button
                 onClick={handleFacebookLogin}
                 disabled={isLoading}
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
@@ -108,15 +119,15 @@ const Login: React.FC = () => {
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                 </svg>
                 <span className="ml-2">Facebook</span>
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
 
         <div className="text-center mt-6">
-          <Link to="/" className="text-blue-600 hover:text-blue-800 text-sm">
-            Continue as guest
-          </Link>
+          <p className="text-gray-500 text-sm">
+            By signing in, you agree to our Terms of Service and Privacy Policy
+          </p>
         </div>
       </div>
     </div>
