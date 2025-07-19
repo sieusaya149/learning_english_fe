@@ -16,7 +16,7 @@ createRoot(document.getElementById('root')!).render(
         audience: auth0Config.audience,
       }}
       useRefreshTokens={true}
-      cacheLocation="memory"
+      cacheLocation="localstorage"
     >
       <BrowserRouter>
         <App />
