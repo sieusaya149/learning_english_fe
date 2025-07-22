@@ -9,6 +9,8 @@ import RepeatPractice from './pages/RepeatPractice';
 import PhrasePractice from './pages/PhrasePractice';
 import ShadowPractice from './pages/ShadowPractice';
 import AddPhrase from './pages/AddPhrase';
+import Calendar from './pages/Calendar';
+import Profile from './pages/Profile';
 import ApiTester from './components/ApiTester';
 
 const App: React.FC = () => {
@@ -48,6 +50,16 @@ const App: React.FC = () => {
         <Route path="add-phrase" element={
           <ProtectedRoute>
             <AddPhrase />
+          </ProtectedRoute>
+        } />
+        <Route path="calendar" element={
+          <ProtectedRoute>
+            <Calendar />
+          </ProtectedRoute>
+        } />
+        <Route path="profile" element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         } />
         <Route path="shadow" element={

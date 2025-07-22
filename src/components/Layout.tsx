@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Mic, BookOpen, Repeat, Home, Menu, X, LogOut, User, Settings, Plus } from 'lucide-react';
+import { Mic, BookOpen, Repeat, Home, Menu, X, LogOut, User, Settings, Plus, Calendar } from 'lucide-react';
 import { useAuth0 } from '@auth0/auth0-react';
 import clsx from 'clsx';
 
@@ -53,6 +53,7 @@ const Layout: React.FC = () => {
               <NavItem to="/repeat" icon={Repeat} label="Repeat" />
               <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
               <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
+              <NavItem to="/calendar" icon={Calendar} label="Calendar" />
               <NavItem to="/shadow" icon={Mic} label="Shadow" />
               {process.env.NODE_ENV === 'development' && (
                 <NavItem to="/api-tester" icon={Settings} label="Apis" />
@@ -61,12 +62,22 @@ const Layout: React.FC = () => {
             
             {isAuthenticated && user && (
               <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-200">
-                <div className="flex items-center gap-2">
-                  <User size={20} className="text-gray-600" />
-                  <span className="text-sm text-gray-700">
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) =>
+                    clsx(
+                      'flex items-center gap-2 px-3 py-2 rounded-md transition-colors',
+                      isActive
+                        ? 'bg-blue-100 text-blue-800 font-medium'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    )
+                  }
+                >
+                  <User size={20} />
+                  <span className="hidden sm:inline">
                     {user.displayName || user.email}
                   </span>
-                </div>
+                </NavLink>
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
@@ -122,6 +133,8 @@ const Layout: React.FC = () => {
           <NavItem to="/repeat" icon={Repeat} label="Repeat" />
           <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
           <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
+          <NavItem to="/calendar" icon={Calendar} label="Calendar" />
+          <NavItem to="/profile" icon={User} label="Profile" />
           <NavItem to="/shadow" icon={Mic} label="Shadow" />
           {process.env.NODE_ENV === 'development' && (
             <NavItem to="/api-tester" icon={Settings} label="Apis" />
@@ -130,21 +143,13 @@ const Layout: React.FC = () => {
           {isAuthenticated && user && (
             <>
               <div className="border-t border-gray-200 my-4"></div>
-              <div className="px-3 py-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <User size={16} className="text-gray-600" />
-                  <span className="text-sm text-gray-700">
-                    {user.displayName || user.email}
-                  </span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  <LogOut size={16} />
-                  <span>Logout</span>
-                </button>
-              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </button>
             </>
           )}
         </nav>
