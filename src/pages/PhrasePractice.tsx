@@ -1,135 +1,79 @@
 import React, { useState, useEffect } from 'react';
-import PhraseCard, { Phrase } from '../components/PhraseCard';
-import { Filter, BookmarkCheck, ArrowUpDown, Search } from 'lucide-react';
+import PhraseCard from '../components/PhraseCard';
+import { Filter, BookmarkCheck, ArrowUpDown, Search, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
-
-// Sample phrases data
-const samplePhrases: Phrase[] = [
-  {
-    id: '1',
-    text: "I'd like to order a coffee please.",
-    translation: "Quisiera pedir un café, por favor.",
-    level: 'beginner',
-    topic: 'restaurant',
-    saved: false,
-  },
-  {
-    id: '2',
-    text: "I'm looking for the nearest subway station.",
-    translation: "Estoy buscando la estación de metro más cercana.",
-    level: 'beginner',
-    topic: 'directions',
-    saved: false,
-  },
-  {
-    id: '3',
-    text: "Could you tell me how to get to the airport?",
-    translation: "¿Podría decirme cómo llegar al aeropuerto?",
-    level: 'beginner',
-    topic: 'directions',
-    saved: true,
-  },
-  {
-    id: '4',
-    text: "I believe we should reconsider our marketing strategy based on the latest data.",
-    translation: "Creo que deberíamos reconsiderar nuestra estrategia de marketing según los datos más recientes.",
-    level: 'intermediate',
-    topic: 'business',
-    saved: false,
-  },
-  {
-    id: '5',
-    text: "The findings of this study suggest a correlation between sleep patterns and productivity.",
-    translation: "Los hallazgos de este estudio sugieren una correlación entre los patrones de sueño y la productividad.",
-    level: 'advanced',
-    topic: 'academic',
-    saved: false,
-  },
-  {
-    id: '6',
-    text: "I'm having trouble with my internet connection.",
-    translation: "Estoy teniendo problemas con mi conexión a internet.",
-    level: 'beginner',
-    topic: 'technology',
-    saved: false,
-  },
-  {
-    id: '7',
-    text: "We need to establish clear guidelines for this project to ensure consistent quality.",
-    translation: "Necesitamos establecer pautas claras para este proyecto para garantizar una calidad constante.",
-    level: 'intermediate',
-    topic: 'business',
-    saved: true,
-  },
-  {
-    id: '8',
-    text: "Could you please clarify what you mean by that?",
-    translation: "¿Podría aclarar a qué se refiere con eso?",
-    level: 'intermediate',
-    topic: 'conversation',
-    saved: false,
-  },
-];
-
-const topics = [...new Set(samplePhrases.map(phrase => phrase.topic))];
-const levels = ['beginner', 'intermediate', 'advanced'];
+import { usePhraseApi } from '../hooks/usePhraseApi';
+import { Phrase } from '../utils/types';
 
 const PhrasePractice: React.FC = () => {
-  const [phrases, setPhrases] = useState<Phrase[]>(samplePhrases);
-  const [filteredPhrases, setFilteredPhrases] = useState<Phrase[]>(samplePhrases);
+  const { 
+    phrases, 
+    loading, 
+    error, 
+    isAuthenticated, 
+    togglePhraseSave, 
+    submitPracticeRecording, 
+    evaluatePronunciation,
+    getAudioUrl,
+    getTranslations,
+    filterPhrases
+  } = usePhraseApi();
+
+  const [filteredPhrases, setFilteredPhrases] = useState<Phrase[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'th' | null>(null);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+  // Get unique topics and levels from phrases
+  const topics = [...new Set(phrases.map(phrase => phrase.topic))].sort();
+  const levels = ['beginner', 'intermediate', 'advanced'];
+  const languages = [
+    { code: 'en' as const, name: 'English', flag: '🇺🇸' },
+    { code: 'th' as const, name: 'Thai', flag: '🇹🇭' }
+  ];
+
   useEffect(() => {
-    let result = [...phrases];
-    
-    // Apply level filter
-    if (selectedLevel) {
-      result = result.filter(phrase => phrase.level === selectedLevel);
-    }
-    
-    // Apply topic filter
-    if (selectedTopic) {
-      result = result.filter(phrase => phrase.topic === selectedTopic);
-    }
-    
-    // Apply saved filter
-    if (showSavedOnly) {
-      result = result.filter(phrase => phrase.saved);
-    }
-    
-    // Apply search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        phrase => 
-          phrase.text.toLowerCase().includes(query) || 
-          (phrase.translation && phrase.translation.toLowerCase().includes(query))
-      );
-    }
-    
-    setFilteredPhrases(result);
-  }, [phrases, selectedLevel, selectedTopic, showSavedOnly, searchQuery]);
+    const filtered = filterPhrases({
+      level: selectedLevel || undefined,
+      topic: selectedTopic || undefined,
+      language: selectedLanguage || undefined,
+      savedOnly: showSavedOnly,
+      searchQuery: searchQuery || undefined
+    });
+    setFilteredPhrases(filtered);
+  }, [phrases, selectedLevel, selectedTopic, selectedLanguage, showSavedOnly, searchQuery, filterPhrases]);
   
-  const handleSavePhrase = (phraseId: string, saved: boolean) => {
-    setPhrases(prevPhrases => 
-      prevPhrases.map(phrase => 
-        phrase.id === phraseId ? { ...phrase, saved } : phrase
-      )
-    );
+  const handleSavePhrase = async (phraseId: string, saved: boolean) => {
+    try {
+      await togglePhraseSave(phraseId, saved);
+    } catch (error) {
+      console.error('Failed to save/unsave phrase:', error);
+    }
   };
   
-  const handleRecordingComplete = (phraseId: string, blob: Blob) => {
-    console.log(`Recording completed for phrase ${phraseId}`, blob);
-    // In a real app, you would store this recording or upload it to a server
+  const handleRecordingComplete = async (phraseId: string, blob: Blob) => {
+    try {
+      await submitPracticeRecording(phraseId, blob, {
+        timestamp: new Date().toISOString(),
+        duration: blob.size // Simple metadata
+      });
+      console.log(`Recording submitted for phrase ${phraseId}`);
+    } catch (error) {
+      console.error('Failed to submit recording:', error);
+    }
+  };
+
+  const handleEvaluate = async (phraseId: string, blob: Blob) => {
+    return await evaluatePronunciation(phraseId, blob);
   };
   
   const clearFilters = () => {
     setSelectedLevel(null);
     setSelectedTopic(null);
+    setSelectedLanguage(null);
     setSearchQuery('');
     setShowSavedOnly(false);
   };
@@ -137,6 +81,59 @@ const PhrasePractice: React.FC = () => {
   const toggleFilter = () => {
     setIsFilterOpen(!isFilterOpen);
   };
+
+  // Authentication required message
+  if (!isAuthenticated) {
+    return (
+      <div className="fade-in">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
+            <p className="text-gray-600 mb-4">Please log in to access phrase practice features.</p>
+            <button
+              onClick={() => window.location.href = '/login'}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading && phrases.length === 0) {
+    return (
+      <div className="fade-in">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center gap-3">
+            <Loader2 className="animate-spin" size={24} />
+            <span className="text-gray-600">Loading phrases...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && phrases.length === 0) {
+    return (
+      <div className="fade-in">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">Failed to load phrases: {error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="fade-in">
@@ -144,8 +141,15 @@ const PhrasePractice: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Phrase Practice</h1>
           <p className="text-gray-600">
-            Practice common English phrases organized by level and topic. Save your favorites for later review.
+            Practice English and Thai phrases with pronunciation guides, translations, and audio. 
+            Record yourself and get AI evaluation!
           </p>
+          {loading && phrases.length > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <Loader2 className="animate-spin" size={16} />
+              <span className="text-sm text-blue-600">Updating phrases...</span>
+            </div>
+          )}
         </div>
         
         <button
@@ -171,6 +175,31 @@ const PhrasePractice: React.FC = () => {
             </h2>
             
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Language
+                </label>
+                <div className="space-y-2">
+                  {languages.map(lang => (
+                    <button
+                      key={lang.code}
+                      onClick={() => setSelectedLanguage(selectedLanguage === lang.code ? null : lang.code)}
+                      className={clsx(
+                        'w-full px-3 py-2 text-left text-sm rounded-md transition-colors',
+                        selectedLanguage === lang.code
+                          ? 'bg-blue-100 text-blue-800 font-medium'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>{lang.flag}</span>
+                        <span>{lang.name}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Level
@@ -230,7 +259,7 @@ const PhrasePractice: React.FC = () => {
                 </button>
               </div>
               
-              {(selectedLevel || selectedTopic || showSavedOnly) && (
+              {(selectedLevel || selectedTopic || selectedLanguage || showSavedOnly) && (
                 <button
                   onClick={clearFilters}
                   className="text-sm text-blue-600 hover:text-blue-800"
@@ -250,17 +279,16 @@ const PhrasePractice: React.FC = () => {
               </div>
               <input
                 type="text"
-                placeholder="Search phrases..."
+                placeholder="Search phrases or translations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-              <ArrowUpDown size={16} />
-              <span>Sort</span>
-            </button>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>{filteredPhrases.length} phrases</span>
+            </div>
           </div>
           
           {filteredPhrases.length > 0 ? (
@@ -271,18 +299,27 @@ const PhrasePractice: React.FC = () => {
                   phrase={phrase}
                   onSave={handleSavePhrase}
                   onRecordingComplete={handleRecordingComplete}
+                  onEvaluate={handleEvaluate}
+                  getAudioUrl={getAudioUrl}
+                  getTranslations={getTranslations}
                 />
               ))}
             </div>
           ) : (
             <div className="card p-8 text-center">
-              <p className="text-gray-600">No phrases match your current filters.</p>
-              <button
-                onClick={clearFilters}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Clear Filters
-              </button>
+              <p className="text-gray-600 mb-4">
+                {searchQuery || selectedLevel || selectedTopic || selectedLanguage || showSavedOnly
+                  ? 'No phrases match your current filters.'
+                  : 'No phrases available.'}
+              </p>
+              {(searchQuery || selectedLevel || selectedTopic || selectedLanguage || showSavedOnly) && (
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           )}
         </div>

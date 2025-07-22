@@ -180,9 +180,9 @@ const RepeatPractice: React.FC = () => {
   // Default Effect to fetch initial videos
   useEffect(() => {
       authVideoApi?.getVideos()
-      .then(videos => {
-        console.log('HVH fetched videos:', videos);
-        videos = videos.map((video: any) => {
+      .then(response => {
+        console.log('HVH fetched videos:', response);
+        const videos = response.videos?.map((video: any) => {
           const videoId = extractVideoId(video.video_url);
           const level = video.level || 'beginner';
           const thumbnail = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
