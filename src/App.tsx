@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import RepeatPractice from './pages/RepeatPractice';
 import PhrasePractice from './pages/PhrasePractice';
 import ShadowPractice from './pages/ShadowPractice';
+import AddPhrase from './pages/AddPhrase';
 import ApiTester from './components/ApiTester';
 
 const App: React.FC = () => {
@@ -42,6 +43,11 @@ const App: React.FC = () => {
         <Route path="phrases" element={
           <ProtectedRoute>
             <PhrasePractice />
+          </ProtectedRoute>
+        } />
+        <Route path="add-phrase" element={
+          <ProtectedRoute>
+            <AddPhrase />
           </ProtectedRoute>
         } />
         <Route path="shadow" element={

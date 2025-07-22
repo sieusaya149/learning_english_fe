@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Mic, BookOpen, Repeat, Home, Menu, X, LogOut, User, Settings } from 'lucide-react';
+import { Mic, BookOpen, Repeat, Home, Menu, X, LogOut, User, Settings, Plus } from 'lucide-react';
 import { useAuth0 } from '@auth0/auth0-react';
 import clsx from 'clsx';
 
@@ -52,6 +52,7 @@ const Layout: React.FC = () => {
               <NavItem to="/" icon={Home} label="Dashboard" />
               <NavItem to="/repeat" icon={Repeat} label="Repeat" />
               <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
+              <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
               <NavItem to="/shadow" icon={Mic} label="Shadow" />
               {process.env.NODE_ENV === 'development' && (
                 <NavItem to="/api-tester" icon={Settings} label="Apis" />
@@ -120,6 +121,7 @@ const Layout: React.FC = () => {
           <NavItem to="/" icon={Home} label="Dashboard" />
           <NavItem to="/repeat" icon={Repeat} label="Repeat" />
           <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
+          <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
           <NavItem to="/shadow" icon={Mic} label="Shadow" />
           {process.env.NODE_ENV === 'development' && (
             <NavItem to="/api-tester" icon={Settings} label="Apis" />

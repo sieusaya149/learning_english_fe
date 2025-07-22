@@ -179,6 +179,44 @@ export class AuthenticatedPhraseAPI extends PhraseAPI {
     super(client);
   }
 
+  // Create new phrase
+  async createPhrase(phraseData: {
+    text: string;
+    level: 'beginner' | 'intermediate' | 'advanced';
+    topic: string;
+    pronunciation?: string;
+    romanize?: string;
+    phonetic?: string;
+    translations?: Array<{
+      language_code: string;
+      translation_text: string;
+    }>;
+  }): Promise<ApiPhrase> {
+    return this.client.post('phrase/create', phraseData, {
+      authenticated: true,
+      apiVersion: '/v1/api'
+    });
+  }
+
+  // Create multiple phrases from CSV data
+  async createPhraseBatch(phrases: Array<{
+    text: string;
+    level: 'beginner' | 'intermediate' | 'advanced';
+    topic: string;
+    pronunciation?: string;
+    romanize?: string;
+    phonetic?: string;
+    translations?: Array<{
+      language_code: string;
+      translation_text: string;
+    }>;
+  }>): Promise<ApiPhrasesResponse> {
+    return this.client.post('phrase/create-batch', { phrases }, {
+      authenticated: true,
+      apiVersion: '/v1/api'
+    });
+  }
+
   // Practice-related authenticated methods
   async submitPracticeRecording(phraseId: string, audioBlob: Blob, metadata?: any) {
     const formData = new FormData();

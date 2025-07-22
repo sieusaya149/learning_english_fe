@@ -135,6 +135,58 @@ export const usePhraseApi = () => {
     }
   };
 
+  // Create new phrase
+  const createPhrase = async (phraseData: {
+    text: string;
+    level: 'beginner' | 'intermediate' | 'advanced';
+    topic: string;
+    pronunciation?: string;
+    romanize?: string;
+    phonetic?: string;
+    translations?: Array<{
+      language_code: string;
+      translation_text: string;
+    }>;
+  }) => {
+    if (!authPhraseApi) throw new Error('Authentication required');
+
+    try {
+      const response = await authPhraseApi.createPhrase(phraseData);
+      // Refresh phrases list after creating new phrase
+      await fetchAllPhrases();
+      return response;
+    } catch (err: any) {
+      console.error('Error creating phrase:', err);
+      throw err;
+    }
+  };
+
+  // Create multiple phrases from CSV data
+  const createPhraseBatch = async (phrases: Array<{
+    text: string;
+    level: 'beginner' | 'intermediate' | 'advanced';
+    topic: string;
+    pronunciation?: string;
+    romanize?: string;
+    phonetic?: string;
+    translations?: Array<{
+      language_code: string;
+      translation_text: string;
+    }>;
+  }>) => {
+    if (!authPhraseApi) throw new Error('Authentication required');
+
+    try {
+      const response = await authPhraseApi.createPhraseBatch(phrases);
+      // Refresh phrases list after creating new phrases
+      await fetchAllPhrases();
+      return response;
+    } catch (err: any) {
+      console.error('Error creating phrase batch:', err);
+      throw err;
+    }
+  };
+
   // Get audio URL for phrase
   const getAudioUrl = (phrase: Phrase, languageCode?: string, voiceType: 'male' | 'female' = 'female') => {
     const targetLanguage = languageCode || phrase.language;
@@ -220,6 +272,8 @@ export const usePhraseApi = () => {
     togglePhraseSave,
     submitPracticeRecording,
     evaluatePronunciation,
+    createPhrase,
+    createPhraseBatch,
     
     // Utilities
     getAudioUrl,
