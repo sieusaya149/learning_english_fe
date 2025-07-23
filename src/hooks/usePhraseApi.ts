@@ -138,6 +138,7 @@ export const usePhraseApi = () => {
   // Create new phrase
   const createPhrase = async (phraseData: {
     text: string;
+    language_code: string;
     level: 'beginner' | 'intermediate' | 'advanced';
     topic: string;
     pronunciation?: string;
@@ -164,6 +165,7 @@ export const usePhraseApi = () => {
   // Create multiple phrases from CSV data
   const createPhraseBatch = async (phrases: Array<{
     text: string;
+    language_code: string;
     level: 'beginner' | 'intermediate' | 'advanced';
     topic: string;
     pronunciation?: string;
@@ -196,20 +198,8 @@ export const usePhraseApi = () => {
     
     if (!audioFile?.file_url) return undefined;
     
-    // Transform local file paths to proper URLs
-    let audioUrl = audioFile.file_url;
-    
-    // Check if it's a local Windows path and transform it
-    if (audioUrl.match(/^[A-Z]:\\/)) {
-      // Extract filename from local path
-      const filename = audioUrl.split('\\').pop() || audioUrl.split('/').pop();
-      
-      // Use environment variable for audio server URL
-      const audioServerUrl = import.meta.env.VITE_AUDIO_SERVER_URL || 'http://localhost:8000/api/audio';
-      audioUrl = `${audioServerUrl}/phrases/${filename}`;
-      
-      console.warn('Transformed local path to URL:', audioFile.file_url, '->', audioUrl);
-    }
+    const audioServerUrl = import.meta.env.VITE_AUDIO_SERVER_URL;
+    const audioUrl = `${audioServerUrl}/${phrase.id}?language_code=${phrase.language}`;
     
     return audioUrl;
   };

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Settings, Edit3, Save, X, Camera, Mail, MapPin, Calendar, Globe, Bell, Palette, Monitor, Moon, Sun, Trophy, Target } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useUser, UserProfile, UserPreferences } from '../hooks/useUser';
+import { PageLoadingSkeleton } from '../components/Skeletons';
 import clsx from 'clsx';
 
 const Profile: React.FC = () => {
@@ -22,10 +24,6 @@ const Profile: React.FC = () => {
   const [profileForm, setProfileForm] = useState<Partial<UserProfile>>({});
   const [preferencesForm, setPreferencesForm] = useState<Partial<UserPreferences>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{
-    type: 'success' | 'error' | null;
-    message: string;
-  }>({ type: null, message: '' });
 
   // Initialize forms when data loads
   useEffect(() => {
@@ -63,14 +61,15 @@ const Profile: React.FC = () => {
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setSaveStatus({ type: null, message: '' });
+
+    const toastId = toast.loading('Updating profile...');
 
     try {
       await updateProfile(profileForm);
       setIsEditingProfile(false);
-      setSaveStatus({ type: 'success', message: 'Profile updated successfully!' });
+      toast.success('Profile updated successfully! ✨', { id: toastId });
     } catch (error: any) {
-      setSaveStatus({ type: 'error', message: error.message || 'Failed to update profile' });
+      toast.error(error.message || 'Failed to update profile', { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -79,14 +78,15 @@ const Profile: React.FC = () => {
   const handlePreferencesSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setSaveStatus({ type: null, message: '' });
+
+    const toastId = toast.loading('Updating preferences...');
 
     try {
       await updatePreferences(preferencesForm);
       setIsEditingPreferences(false);
-      setSaveStatus({ type: 'success', message: 'Preferences updated successfully!' });
+      toast.success('Preferences updated successfully! ⚙️', { id: toastId });
     } catch (error: any) {
-      setSaveStatus({ type: 'error', message: error.message || 'Failed to update preferences' });
+      toast.error(error.message || 'Failed to update preferences', { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -97,7 +97,6 @@ const Profile: React.FC = () => {
     setIsEditingPreferences(false);
     setProfileForm(profile || {});
     setPreferencesForm(preferences || {});
-    setSaveStatus({ type: null, message: '' });
   };
 
   const streakInfo = getStreakInfo();
@@ -118,13 +117,7 @@ const Profile: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="fade-in">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
+    return <PageLoadingSkeleton type="profile" />;
   }
 
   return (
@@ -134,22 +127,6 @@ const Profile: React.FC = () => {
           <User className="w-8 h-8 text-blue-600" />
           Profile
         </h1>
-
-        {/* Status Message */}
-        {saveStatus.type && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            saveStatus.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            {saveStatus.type === 'success' ? (
-              <Save className="w-5 h-5" />
-            ) : (
-              <X className="w-5 h-5" />
-            )}
-            <span>{saveStatus.message}</span>
-          </div>
-        )}
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 text-red-800 rounded-lg border border-red-200">

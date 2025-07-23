@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Trophy, Flame, Clock, Target, BookOpen, Video, Star, TrendingUp } from 'lucide-react';
 import { useUser, DayProgress } from '../hooks/useUser';
+import { PageLoadingSkeleton } from '../components/Skeletons';
 import clsx from 'clsx';
 
 const Calendar: React.FC = () => {
@@ -111,13 +112,7 @@ const Calendar: React.FC = () => {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   if (loading) {
-    return (
-      <div className="fade-in">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
+    return <PageLoadingSkeleton type="calendar" />;
   }
 
   return (

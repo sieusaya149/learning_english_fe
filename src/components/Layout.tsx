@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { Mic, BookOpen, Repeat, Home, Menu, X, LogOut, User, Settings, Plus, Calendar } from 'lucide-react';
 import { useAuth0 } from '@auth0/auth0-react';
+import NotificationBell from './NotificationBell';
 import clsx from 'clsx';
 
 const Layout: React.FC = () => {
@@ -50,18 +51,22 @@ const Layout: React.FC = () => {
           <div className="hidden md:flex items-center gap-6">
             <nav className="flex items-center gap-2">
               <NavItem to="/" icon={Home} label="Dashboard" />
-              <NavItem to="/repeat" icon={Repeat} label="Repeat" />
+              {/* <NavItem to="/repeat" icon={Repeat} label="Repeat" /> */}
               <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
-              <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
-              <NavItem to="/calendar" icon={Calendar} label="Calendar" />
               <NavItem to="/shadow" icon={Mic} label="Shadow" />
-              {process.env.NODE_ENV === 'development' && (
-                <NavItem to="/api-tester" icon={Settings} label="Apis" />
-              )}
+              {/* {process.env.NODE_ENV === 'development' && (
+                <>
+                  <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
+                  <NavItem to="/calendar" icon={Calendar} label="Calendar" />
+                  <NavItem to="/api-tester" icon={Settings} label="Apis" />
+                </>
+              )} */}
             </nav>
             
             {isAuthenticated && user && (
               <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-200">
+                <NotificationBell />
+                
                 <NavLink
                   to="/profile"
                   className={({ isActive }) =>

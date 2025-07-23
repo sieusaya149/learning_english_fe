@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bookmark, BookmarkCheck, Play, Volume2, Mic, CheckCircle, Headphones, Globe } from 'lucide-react';
 import AudioRecorder from './AudioRecorder';
+import EnhancedAudioPlayer from './EnhancedAudioPlayer';
 import { Phrase, ApiTranslation } from '../utils/types';
 
 interface PhraseCardProps {
@@ -67,15 +68,6 @@ const PhraseCard: React.FC<PhraseCardProps> = ({
     let audioUrl = getAudioUrl(phrase, languageCode, voiceType);
     if (audioUrl) {
       setPlayingAudio(audioUrl);
-      const audio = new Audio(audioUrl);
-      
-      audio.onended = () => setPlayingAudio(null);
-      audio.onerror = () => setPlayingAudio(null);
-      
-      audio.play().catch(error => {
-        console.error('Audio playback failed:', error);
-        setPlayingAudio(null);
-      });
     }
   };
 
@@ -180,45 +172,54 @@ const PhraseCard: React.FC<PhraseCardProps> = ({
           </button>
         </div>
         
+        {/* Enhanced Audio Players */}
+        {getAudioUrl && phrase.audio_files.length > 0 && (
+          <div className="space-y-3 mt-4">
+            {/* Main phrase audio */}
+            {getAudioUrl(phrase, phrase.language) && (
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-1">
+                  {getLanguageFlag(phrase.language)} {phrase.language.toUpperCase()} Audio
+                </p>
+                <EnhancedAudioPlayer
+                  src={getAudioUrl(phrase, phrase.language) || ''}
+                  title={phrase.text}
+                  compact={true}
+                  showSpeedControl={true}
+                  onPlay={() => setPlayingAudio(getAudioUrl(phrase, phrase.language) || '')}
+                  onPause={() => setPlayingAudio(null)}
+                  onEnded={() => setPlayingAudio(null)}
+                />
+              </div>
+            )}
+
+            {/* Translation audio */}
+            {relevantTranslations.map((translation) => {
+              const audioUrl = getAudioUrl(phrase, translation.language_code);
+              if (!audioUrl || translation.language_code === phrase.language) return null;
+              
+              return (
+                <div key={`audio-${translation.id}`}>
+                  <p className="text-xs font-medium text-gray-600 mb-1">
+                    {getLanguageFlag(translation.language_code)} {translation.language_code.toUpperCase()} Audio
+                  </p>
+                  <EnhancedAudioPlayer
+                    src={audioUrl}
+                    title={translation.translation_text}
+                    compact={true}
+                    showSpeedControl={true}
+                    onPlay={() => setPlayingAudio(audioUrl)}
+                    onPause={() => setPlayingAudio(null)}
+                    onEnded={() => setPlayingAudio(null)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 mt-4">
-          {/* Listen Button */}
-          {getAudioUrl && (
-            <button
-              onClick={() => handlePlayAudio(phrase.language)}
-              disabled={playingAudio !== null}
-              className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                playingAudio !== null
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-              }`}
-            >
-              <Volume2 size={16} />
-              <span>{playingAudio ? 'Playing...' : 'Listen'}</span>
-            </button>
-          )}
-          
-          {/* Listen to translations */}
-          {relevantTranslations.length > 0 && relevantTranslations.map((translation) => {
-            const hasAudio = getAudioUrl && getAudioUrl(phrase, translation.language_code);
-            if (!hasAudio) return null;
-            
-            return (
-              <button
-                key={`audio-${translation.id}`}
-                onClick={() => handlePlayAudio(translation.language_code)}
-                disabled={playingAudio !== null}
-                className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
-                  playingAudio !== null
-                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
-                }`}
-              >
-                <Headphones size={12} />
-                <span>{getLanguageFlag(translation.language_code)}</span>
-              </button>
-            );
-          })}
           
           {/* Recording Button */}
           <button

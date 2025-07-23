@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Repeat, BookOpen, Mic, ChevronRight, Star, Video, BookMarked, User } from 'lucide-react';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth0';
 import { useApiClient } from '../hooks/useApiClient';
 import { createUserAPI } from '../utils/VideoApis';
+import { PageLoadingSkeleton } from '../components/Skeletons';
+import { useNotifications, createSystemNotification, createAchievementNotification } from '../hooks/useNotifications';
 
 const features = [
   {
@@ -36,6 +39,7 @@ const features = [
 const Dashboard: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const { authApiV1 } = useApiClient();
+  const { addNotification } = useNotifications();
   const [stats, setStats] = useState([
     { label: 'Videos Available', value: 'Loading...', icon: Video },
     { label: 'Practice Phrases', value: 500, icon: BookMarked },
@@ -55,6 +59,29 @@ const Dashboard: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
+
+        // Check if this is user's first visit
+        const hasVisitedDashboard = localStorage.getItem('hasVisitedDashboard');
+        if (!hasVisitedDashboard && user) {
+          localStorage.setItem('hasVisitedDashboard', 'true');
+          
+          // Welcome notification
+          setTimeout(() => {
+            addNotification(createSystemNotification(
+              `Welcome to Speak & Learn! 👋`,
+              `Hi ${user.name || 'there'}! Ready to start your language learning journey? Check out the phrase practice to get started.`
+            ));
+          }, 1000);
+          
+          // Achievement for joining
+          setTimeout(() => {
+            addNotification(createAchievementNotification(
+              'Welcome Aboard! 🚀',
+              'You\'ve taken the first step towards mastering a new language. Your journey begins now!',
+              '🚀'
+            ));
+          }, 2000);
+        }
 
         // Fetch user practice data using UserAPI
         const userAPI = createUserAPI(authApiV1);
@@ -76,23 +103,21 @@ const Dashboard: React.FC = () => {
           { label: 'Practice Minutes', value: practiceMinutes, icon: Star },
         ]);
 
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
+      } catch (err: any) {
+        console.error('Dashboard error:', err);
         setError('Failed to load dashboard data');
-        
-        // Keep default stats on error
-        setStats([
-          { label: 'Videos Available', value: 'Error', icon: Video },
-          { label: 'Practice Phrases', value: 500, icon: BookMarked },
-          { label: 'Practice Minutes', value: 0, icon: Star },
-        ]);
+        toast.error('Failed to load dashboard data. Please try refreshing the page.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [isAuthenticated, authApiV1]);
+  }, [isAuthenticated, authApiV1, user, addNotification]);
+
+  if (loading) {
+    return <PageLoadingSkeleton type="dashboard" />;
+  }
 
   return (
     <div className="space-y-8 fade-in">

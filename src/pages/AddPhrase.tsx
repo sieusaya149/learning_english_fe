@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Upload, Plus, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { usePhraseApi } from '../hooks/usePhraseApi';
+import { useNotifications, createAchievementNotification } from '../hooks/useNotifications';
 
 interface PhraseFormData {
   text: string;
+  language_code: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
   pronunciation?: string;
@@ -17,10 +20,12 @@ interface PhraseFormData {
 
 const AddPhrase: React.FC = () => {
   const { createPhrase, createPhraseBatch, isAuthenticated, loading } = usePhraseApi();
+  const { addNotification } = useNotifications();
   
   // Single phrase form state
   const [singlePhrase, setSinglePhrase] = useState<PhraseFormData>({
     text: '',
+    language_code: 'en',
     level: 'beginner',
     topic: '',
     pronunciation: '',
@@ -37,10 +42,6 @@ const AddPhrase: React.FC = () => {
   // UI state
   const [activeTab, setActiveTab] = useState<'single' | 'csv'>('single');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<{
-    type: 'success' | 'error' | null;
-    message: string;
-  }>({ type: null, message: '' });
 
   // Authentication check
   if (!isAuthenticated) {
@@ -102,7 +103,8 @@ const AddPhrase: React.FC = () => {
   const handleSinglePhraseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSubmitStatus({ type: null, message: '' });
+
+    const toastId = toast.loading('Creating phrase...');
 
     try {
       // Filter out empty translations
@@ -116,11 +118,20 @@ const AddPhrase: React.FC = () => {
       };
 
       await createPhrase(phraseData);
-      setSubmitStatus({ type: 'success', message: 'Phrase created successfully!' });
+      
+      toast.success('Phrase created successfully! 🎉', { id: toastId });
+      
+      // Add notification for phrase creation achievement
+      addNotification(createAchievementNotification(
+        'Phrase Created! 📝',
+        `You've successfully added "${phraseData.text}" to your learning collection.`,
+        '📝'
+      ));
       
       // Reset form
       setSinglePhrase({
         text: '',
+        language_code: 'en',
         level: 'beginner',
         topic: '',
         pronunciation: '',
@@ -129,7 +140,7 @@ const AddPhrase: React.FC = () => {
         translations: [{ language_code: 'th', translation_text: '' }]
       });
     } catch (error: any) {
-      setSubmitStatus({ type: 'error', message: error.message || 'Failed to create phrase' });
+      toast.error(error.message || 'Failed to create phrase', { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
@@ -138,11 +149,12 @@ const AddPhrase: React.FC = () => {
   // Handle CSV file selection
   const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'text/csv') {
+    console.log(file);
+    if (file && (file.type === 'text/csv' || file.type === 'application/vnd.ms-excel')) {
       setCsvFile(file);
       parseCsvFile(file);
     } else {
-      setSubmitStatus({ type: 'error', message: 'Please select a valid CSV file' });
+      toast.error('Please select a valid CSV file');
     }
   };
 
@@ -154,18 +166,15 @@ const AddPhrase: React.FC = () => {
       const lines = csvText.split('\n').filter(line => line.trim());
       
       if (lines.length < 2) {
-        setSubmitStatus({ type: 'error', message: 'CSV must have at least a header and one data row' });
+        toast.error('CSV must have at least a header and one data row');
         return;
       }
 
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-      const expectedHeaders = ['text', 'level', 'topic'];
+      const expectedHeaders = ['text', 'language_code', 'level', 'topic'];
       
       if (!expectedHeaders.every(header => headers.includes(header))) {
-        setSubmitStatus({ 
-          type: 'error', 
-          message: 'CSV must include columns: text, level, topic. Optional: pronunciation, romanize, phonetic, translation_en, translation_th' 
-        });
+        toast.error('CSV must include columns: text, language_code, level, topic. Optional: pronunciation, romanize, phonetic, translation_en, translation_th');
         return;
       }
 
@@ -183,6 +192,7 @@ const AddPhrase: React.FC = () => {
       // Convert to phrase format for preview
       const preview = data.map(row => ({
         text: row.text || '',
+        language_code: row.language_code || 'en',
         level: (row.level || 'beginner') as 'beginner' | 'intermediate' | 'advanced',
         topic: row.topic || '',
         pronunciation: row.pronunciation || '',
@@ -195,7 +205,7 @@ const AddPhrase: React.FC = () => {
       }));
 
       setCsvPreview(preview);
-      setSubmitStatus({ type: 'success', message: `Loaded ${data.length} phrases from CSV` });
+      toast.success(`📄 Loaded ${data.length} phrases from CSV`);
     };
 
     reader.readAsText(file);
@@ -204,23 +214,38 @@ const AddPhrase: React.FC = () => {
   // Submit CSV phrases
   const handleCsvSubmit = async () => {
     if (csvPreview.length === 0) {
-      setSubmitStatus({ type: 'error', message: 'No phrases to submit' });
+      toast.error('No phrases to submit');
       return;
     }
 
     setIsSubmitting(true);
-    setSubmitStatus({ type: null, message: '' });
+    const toastId = toast.loading(`Creating ${csvPreview.length} phrases...`);
 
     try {
       await createPhraseBatch(csvPreview);
-      setSubmitStatus({ type: 'success', message: `Successfully created ${csvPreview.length} phrases!` });
+      toast.success(`🎉 Successfully created ${csvPreview.length} phrases!`, { id: toastId });
+      
+      // Add notification for batch creation achievement
+      if (csvPreview.length >= 10) {
+        addNotification(createAchievementNotification(
+          'Bulk Creator! 🚀',
+          `Impressive! You've added ${csvPreview.length} phrases at once. Your vocabulary is growing fast!`,
+          '🚀'
+        ));
+      } else {
+        addNotification(createAchievementNotification(
+          'Phrases Added! 📚',
+          `Great job! You've successfully added ${csvPreview.length} new phrases to your collection.`,
+          '📚'
+        ));
+      }
       
       // Reset CSV state
       setCsvFile(null);
       setCsvData([]);
       setCsvPreview([]);
     } catch (error: any) {
-      setSubmitStatus({ type: 'error', message: error.message || 'Failed to create phrases from CSV' });
+      toast.error(error.message || 'Failed to create phrases from CSV', { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
@@ -230,22 +255,6 @@ const AddPhrase: React.FC = () => {
     <div className="fade-in">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Add Phrases</h1>
-
-        {/* Status Message */}
-        {submitStatus.type && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            submitStatus.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            {submitStatus.type === 'success' ? (
-              <CheckCircle className="w-5 h-5" />
-            ) : (
-              <AlertCircle className="w-5 h-5" />
-            )}
-            <span>{submitStatus.message}</span>
-          </div>
-        )}
 
         {/* Tab Navigation */}
         <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-8">
@@ -291,7 +300,31 @@ const AddPhrase: React.FC = () => {
                     onChange={(e) => handleSinglePhraseChange('text', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
+                    placeholder="Enter the phrase text"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Language Code *
+                  </label>
+                  <select
+                    value={singlePhrase.language_code}
+                    onChange={(e) => handleSinglePhraseChange('language_code', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="en">English (EN)</option>
+                    <option value="th">Thai (TH)</option>
+                    <option value="ja">Japanese (JA)</option>
+                    <option value="ko">Korean (KO)</option>
+                    <option value="zh">Chinese (ZH)</option>
+                    <option value="es">Spanish (ES)</option>
+                    <option value="fr">French (FR)</option>
+                    <option value="de">German (DE)</option>
+                    <option value="it">Italian (IT)</option>
+                    <option value="pt">Portuguese (PT)</option>
+                  </select>
                 </div>
 
                 <div>
@@ -473,9 +506,10 @@ const AddPhrase: React.FC = () => {
               <div className="text-sm text-gray-600 mb-4">
                 <p className="font-medium mb-2">CSV Format Requirements:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Required columns:</strong> text, level, topic</li>
+                  <li><strong>Required columns:</strong> text, language_code, level, topic</li>
                   <li><strong>Optional columns:</strong> pronunciation, romanize, phonetic, translation_en, translation_th</li>
                   <li><strong>Level values:</strong> beginner, intermediate, advanced</li>
+                  <li><strong>Language code values:</strong> en, th, ja, ko, zh, es, fr, de, it, pt</li>
                   <li>First row should contain column headers</li>
                 </ul>
               </div>

@@ -4,6 +4,8 @@ import { Filter, BookmarkCheck, ArrowUpDown, Search, Loader2 } from 'lucide-reac
 import clsx from 'clsx';
 import { usePhraseApi } from '../hooks/usePhraseApi';
 import { Phrase } from '../utils/types';
+import { PageLoadingSkeleton } from '../components/Skeletons';
+import { useNotifications, createPracticeNotification, createAchievementNotification } from '../hooks/useNotifications';
 
 const PhrasePractice: React.FC = () => {
   const { 
@@ -19,6 +21,8 @@ const PhrasePractice: React.FC = () => {
     filterPhrases
   } = usePhraseApi();
 
+  const { addNotification } = useNotifications();
+  
   const [filteredPhrases, setFilteredPhrases] = useState<Phrase[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
@@ -49,6 +53,31 @@ const PhrasePractice: React.FC = () => {
   const handleSavePhrase = async (phraseId: string, saved: boolean) => {
     try {
       await togglePhraseSave(phraseId, saved);
+      
+      if (saved) {
+        // Count saved phrases for achievement
+        const savedCount = phrases.filter(p => p.saved).length + 1;
+        
+        if (savedCount === 5) {
+          addNotification(createAchievementNotification(
+            'Collector! 📌',
+            'You\'ve saved your first 5 phrases! Building your personal vocabulary collection.',
+            '📌'
+          ));
+        } else if (savedCount === 25) {
+          addNotification(createAchievementNotification(
+            'Vocabulary Builder! 📚',
+            'Amazing! 25 phrases saved. Your personal collection is growing strong!',
+            '📚'
+          ));
+        } else if (savedCount === 50) {
+          addNotification(createAchievementNotification(
+            'Word Master! 🏆',
+            'Incredible! 50 phrases saved. You\'re building an impressive vocabulary arsenal!',
+            '🏆'
+          ));
+        }
+      }
     } catch (error) {
       console.error('Failed to save/unsave phrase:', error);
     }
@@ -60,7 +89,46 @@ const PhrasePractice: React.FC = () => {
         timestamp: new Date().toISOString(),
         duration: blob.size // Simple metadata
       });
+      
       console.log(`Recording submitted for phrase ${phraseId}`);
+      
+      // Add practice completion notification
+      addNotification(createPracticeNotification('phrase', 1));
+      
+      // Check for practice milestones
+      const todayPractices = localStorage.getItem('todayPracticeCount');
+      const currentCount = todayPractices ? parseInt(todayPractices) + 1 : 1;
+      const today = new Date().toDateString();
+      const lastPracticeDate = localStorage.getItem('lastPracticeDate');
+      
+      if (lastPracticeDate !== today) {
+        // Reset daily count for new day
+        localStorage.setItem('todayPracticeCount', '1');
+        localStorage.setItem('lastPracticeDate', today);
+      } else {
+        localStorage.setItem('todayPracticeCount', currentCount.toString());
+        
+        // Daily milestone notifications
+        if (currentCount === 5) {
+          addNotification(createAchievementNotification(
+            'Daily Dedicated! 🎯',
+            'Fantastic! You\'ve practiced 5 phrases today. Consistency is key!',
+            '🎯'
+          ));
+        } else if (currentCount === 10) {
+          addNotification(createAchievementNotification(
+            'Practice Powerhouse! ⚡',
+            'Outstanding! 10 phrases practiced today. You\'re on fire!',
+            '⚡'
+          ));
+        } else if (currentCount === 20) {
+          addNotification(createAchievementNotification(
+            'Marathon Learner! 🏃‍♂️',
+            'Incredible dedication! 20 phrases in one day. You\'re unstoppable!',
+            '🏃‍♂️'
+          ));
+        }
+      }
     } catch (error) {
       console.error('Failed to submit recording:', error);
     }
@@ -102,18 +170,9 @@ const PhrasePractice: React.FC = () => {
     );
   }
 
-  // Loading state
-  if (loading && phrases.length === 0) {
-    return (
-      <div className="fade-in">
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-3">
-            <Loader2 className="animate-spin" size={24} />
-            <span className="text-gray-600">Loading phrases...</span>
-          </div>
-        </div>
-      </div>
-    );
+  // Loading state with skeleton
+  if (loading) {
+    return <PageLoadingSkeleton type="phrases" />;
   }
 
   // Error state

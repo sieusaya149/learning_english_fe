@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from './useAuth0';
 import { useApiClient } from './useApiClient';
 import { createUserAPI, createPracticeAPI } from '../utils/VideoApis';
+import { useNotifications, createStreakNotification, createAchievementNotification } from './useNotifications';
 
 // Extended types for user data
 export interface UserProfile {
@@ -58,6 +59,7 @@ export interface Achievement {
 export const useUser = () => {
   const { getAccessToken, isAuthenticated, user: auth0User } = useAuth();
   const { authApiV2 } = useApiClient();
+  const { addNotification } = useNotifications();
   
   // State
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -235,7 +237,7 @@ export const useUser = () => {
     return calendarData;
   };
 
-  // Get streak information
+  // Get streak information with notification triggers
   const getStreakInfo = () => {
     if (!practiceHistory.length) return { current: 0, best: 0 };
     
@@ -275,11 +277,45 @@ export const useUser = () => {
         consecutiveDays = 0;
       }
     }
+
+    // Trigger streak notifications for milestones
+    const previousStreak = localStorage.getItem('lastKnownStreak');
+    const lastStreakValue = previousStreak ? parseInt(previousStreak) : 0;
+    
+    if (currentStreak > lastStreakValue) {
+      localStorage.setItem('lastKnownStreak', currentStreak.toString());
+      
+      // Milestone notifications
+      if (currentStreak === 7) {
+        addNotification(createStreakNotification(7));
+        addNotification(createAchievementNotification(
+          'Week Warrior! 🌟',
+          'You\'ve practiced for 7 days straight! Keep up the amazing momentum.',
+          '🌟'
+        ));
+      } else if (currentStreak === 30) {
+        addNotification(createStreakNotification(30));
+        addNotification(createAchievementNotification(
+          'Monthly Master! 🏆',
+          'Incredible! 30 days of consistent practice. You\'re a true language learning champion!',
+          '🏆'
+        ));
+      } else if (currentStreak === 100) {
+        addNotification(createStreakNotification(100));
+        addNotification(createAchievementNotification(
+          'Century Champion! 👑',
+          'LEGENDARY! 100 days of practice. You\'ve achieved something truly extraordinary!',
+          '👑'
+        ));
+      } else if (currentStreak % 10 === 0 && currentStreak > 10) {
+        addNotification(createStreakNotification(currentStreak));
+      }
+    }
     
     return { current: currentStreak, best: bestStreak };
   };
 
-  // Load all user data
+  // Load all user data with achievement checking
   const loadUserData = async () => {
     if (!isAuthenticated) return;
 
@@ -294,6 +330,59 @@ export const useUser = () => {
         fetchPracticeHistory(),
         fetchAchievements()
       ]);
+
+      // Check for practice milestones after loading stats
+      if (practiceStats) {
+        const lastTotalSessions = localStorage.getItem('lastTotalSessions');
+        const lastSessionValue = lastTotalSessions ? parseInt(lastTotalSessions) : 0;
+        
+        if (practiceStats.total_sessions > lastSessionValue) {
+          localStorage.setItem('lastTotalSessions', practiceStats.total_sessions.toString());
+          
+          // Session milestone notifications
+          if (practiceStats.total_sessions === 10) {
+            addNotification(createAchievementNotification(
+              'Getting Started! 🚀',
+              'Congratulations on completing your first 10 practice sessions!',
+              '🚀'
+            ));
+          } else if (practiceStats.total_sessions === 50) {
+            addNotification(createAchievementNotification(
+              'Practice Pro! 💪',
+              'Amazing! You\'ve completed 50 practice sessions. You\'re building great habits!',
+              '💪'
+            ));
+          } else if (practiceStats.total_sessions === 100) {
+            addNotification(createAchievementNotification(
+              'Dedication Unlocked! 🎯',
+              'Incredible milestone! 100 practice sessions completed. Your dedication is inspiring!',
+              '🎯'
+            ));
+          }
+        }
+
+        // Practice time milestones
+        const lastTotalMinutes = localStorage.getItem('lastTotalMinutes');
+        const lastMinutesValue = lastTotalMinutes ? parseInt(lastTotalMinutes) : 0;
+        
+        if (practiceStats.total_minutes > lastMinutesValue) {
+          localStorage.setItem('lastTotalMinutes', practiceStats.total_minutes.toString());
+          
+          if (practiceStats.total_minutes >= 60 && lastMinutesValue < 60) {
+            addNotification(createAchievementNotification(
+              'First Hour! ⏰',
+              'You\'ve completed your first hour of practice! Every minute counts.',
+              '⏰'
+            ));
+          } else if (practiceStats.total_minutes >= 600 && lastMinutesValue < 600) { // 10 hours
+            addNotification(createAchievementNotification(
+              'Time Investor! 📈',
+              'Wow! 10 hours of practice completed. Your investment in learning is paying off!',
+              '📈'
+            ));
+          }
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load user data');
     } finally {

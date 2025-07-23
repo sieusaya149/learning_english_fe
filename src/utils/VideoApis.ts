@@ -182,6 +182,7 @@ export class AuthenticatedPhraseAPI extends PhraseAPI {
   // Create new phrase
   async createPhrase(phraseData: {
     text: string;
+    language_code: string;
     level: 'beginner' | 'intermediate' | 'advanced';
     topic: string;
     pronunciation?: string;
@@ -201,6 +202,7 @@ export class AuthenticatedPhraseAPI extends PhraseAPI {
   // Create multiple phrases from CSV data
   async createPhraseBatch(phrases: Array<{
     text: string;
+    language_code: string;
     level: 'beginner' | 'intermediate' | 'advanced';
     topic: string;
     pronunciation?: string;
