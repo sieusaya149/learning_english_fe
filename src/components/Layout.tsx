@@ -54,9 +54,9 @@ const Layout: React.FC = () => {
               {/* <NavItem to="/repeat" icon={Repeat} label="Repeat" /> */}
               <NavItem to="/phrases" icon={BookOpen} label="Phrases" />
               <NavItem to="/shadow" icon={Mic} label="Shadow" />
+              <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
               {/* {process.env.NODE_ENV === 'development' && (
                 <>
-                  <NavItem to="/add-phrase" icon={Plus} label="Add Phrase" />
                   <NavItem to="/calendar" icon={Calendar} label="Calendar" />
                   <NavItem to="/api-tester" icon={Settings} label="Apis" />
                 </>
