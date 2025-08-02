@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Bookmark, BookmarkCheck, Play, Volume2, Mic, CheckCircle, Headphones, Globe } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Play, Volume2, Mic, CheckCircle, Headphones, Globe, Maximize2 } from 'lucide-react';
+import clsx from 'clsx';
 import AudioRecorder from './AudioRecorder';
 import EnhancedAudioPlayer from './EnhancedAudioPlayer';
 import { Phrase, ApiTranslation } from '../utils/types';
@@ -11,6 +12,9 @@ interface PhraseCardProps {
   onEvaluate?: (phraseId: string, blob: Blob) => Promise<any>;
   getAudioUrl?: (phrase: Phrase, languageCode?: string, voiceType?: 'male' | 'female') => string | undefined;
   getTranslations?: (phrase: Phrase, targetLanguages: string[]) => ApiTranslation[];
+  showZoomButton?: boolean;
+  onZoom?: () => void;
+  compact?: boolean;
 }
 
 const PhraseCard: React.FC<PhraseCardProps> = ({ 
@@ -19,7 +23,10 @@ const PhraseCard: React.FC<PhraseCardProps> = ({
   onRecordingComplete,
   onEvaluate,
   getAudioUrl,
-  getTranslations
+  getTranslations,
+  showZoomButton = false,
+  onZoom,
+  compact = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -105,8 +112,13 @@ const PhraseCard: React.FC<PhraseCardProps> = ({
   };
   
   return (
-    <div className="card hover:shadow-lg">
-      <div className="p-4">
+    <div className={clsx(
+      "card hover:shadow-lg transition-shadow",
+      compact ? "hover:shadow-md" : "hover:shadow-lg"
+    )}>
+      <div className={clsx(
+        compact ? "p-3" : "p-4"
+      )}>
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <div className="flex gap-2 mb-2">
@@ -159,17 +171,30 @@ const PhraseCard: React.FC<PhraseCardProps> = ({
             )}
           </div>
           
-          <button
-            onClick={handleToggleSave}
-            className="text-gray-500 hover:text-blue-600 p-2 transition-colors ml-2"
-            aria-label={phrase.saved ? 'Unsave phrase' : 'Save phrase'}
-          >
-            {phrase.saved ? (
-              <BookmarkCheck className="text-blue-600" size={20} />
-            ) : (
-              <Bookmark size={20} />
+          <div className="flex items-center gap-1 ml-2">
+            {showZoomButton && onZoom && (
+              <button
+                onClick={onZoom}
+                className="text-gray-500 hover:text-blue-600 p-2 transition-colors"
+                aria-label="View in fullscreen"
+                title="Fullscreen mode (F)"
+              >
+                <Maximize2 size={20} />
+              </button>
             )}
-          </button>
+            
+            <button
+              onClick={handleToggleSave}
+              className="text-gray-500 hover:text-blue-600 p-2 transition-colors"
+              aria-label={phrase.saved ? 'Unsave phrase' : 'Save phrase'}
+            >
+              {phrase.saved ? (
+                <BookmarkCheck className="text-blue-600" size={20} />
+              ) : (
+                <Bookmark size={20} />
+              )}
+            </button>
+          </div>
         </div>
         
         {/* Enhanced Audio Players */}
@@ -259,7 +284,10 @@ const PhraseCard: React.FC<PhraseCardProps> = ({
       </div>
       
       {(isExpanded || isRecording) && (
-        <div className="border-t border-gray-200 p-4 bg-gray-50">
+        <div className={clsx(
+          "border-t border-gray-200 bg-gray-50",
+          compact ? "p-3" : "p-4"
+        )}>
           <AudioRecorder 
             onRecordingComplete={(blob) => {
               handleRecordingComplete(blob);
